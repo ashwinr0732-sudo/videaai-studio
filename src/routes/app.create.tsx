@@ -6,7 +6,9 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
+import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
+import { startGeneration } from "@/lib/video/client";
 import { CREDIT_COST, type AspectRatio, type DurationSeconds, type VideoStyle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
