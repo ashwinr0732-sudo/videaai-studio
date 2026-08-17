@@ -170,7 +170,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
           ...prev.credits,
         ],
       }));
-      return project;
+      return { project, generation };
     },
     [user],
   );
