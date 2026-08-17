@@ -179,38 +179,172 @@ export function DataProvider({ children }: { children: ReactNode }) {
     (projectId: string) => {
       const now = new Date().toISOString();
       const userId = user?.id ?? "anonymous";
-      setData((prev) => {
-        const project = prev.projects.find((p) => p.id === projectId);
-        if (!project) return prev;
-        const cost = CREDIT_COST[project.duration_seconds];
-        return {
-          projects: prev.projects.map((p) =>
-            p.id === projectId ? { ...p, status: "queued", updated_at: now } : p,
-          ),
-          generations: [
-            {
-              id: uid(),
-              project_id: projectId,
-              user_id: userId,
-              status: "queued",
-              provider: null,
-              provider_job_id: null,
-              credits_spent: cost,
-              error_message: null,
-              created_at: now,
-              completed_at: null,
-            },
-            ...prev.generations,
-          ],
-          credits: [
-            { id: uid(), user_id: userId, amount: -cost, reason: "generation", created_at: now },
-            ...prev.credits,
-          ],
-        };
-      });
+      const project = data.projects.find((p) => p.id === projectId);
+      if (!project) return undefined;
+      const cost = CREDIT_COST[project.duration_seconds];
+      const generation: Generation = {
+        id: uid(),
+        project_id: projectId,
+        user_id: userId,
+        status: "queued",
+        provider: null,
+        provider_job_id: null,
+        credits_spent: cost,
+        error_message: null,
+        created_at: now,
+        completed_at: null,
+      };
+      setData((prev) => ({
+        projects: prev.projects.map((p) =>
+          p.id === projectId
+            ? { ...p, status: "queued", video_url: null, updated_at: now }
+            : p,
+        ),
+        generations: [generation, ...prev.generations],
+        credits: [
+          { id: uid(), user_id: userId, amount: -cost, reason: "generation", created_at: now },
+          ...prev.credits,
+        ],
+      }));
+      return generation;
+    },
+    [user, data.projects],
+  );
+
+  const linkGeneration = useCallback(
+    (generationId: string, providerJobId: string, provider: string) => {
+      setData((prev) => ({
+        ...prev,
+        generations: prev.generations.map((g) =>
+          g.id === generationId
+            ? { ...g, provider, provider_job_id: providerJobId, status: "processing" }
+            : g,
+        ),
+        projects: prev.projects.map((p) =>
+          prev.generations.some((g) => g.id === generationId && g.project_id === p.id)
+            ? { ...p, status: "processing", updated_at: new Date().toISOString() }
+            : p,
+        ),
+      }));
+    },
+    [],
+  );
+
+  const applyJobUpdate = useCallback((generationId: string, update: JobUpdate) => {
+    const now = new Date().toISOString();
+    const projectStatus =
+      update.status === "completed"
+        ? ("ready" as const)
+        : update.status === "failed"
+          ? ("failed" as const)
+          : update.status === "queued"
+            ? ("queued" as const)
+            : ("processing" as const);
+    setData((prev) => {
+      const target = prev.generations.find((g) => g.id === generationId);
+      if (!target || target.status === projectStatus) return prev;
+      const refund =
+        update.status === "failed" && target.status !== "failed"
+          ? [
+              {
+                id: uid(),
+                user_id: target.user_id,
+                amount: target.credits_spent,
+                reason: "refund" as CreditReason,
+                created_at: now,
+              },
+            ]
+          : [];
+      return {
+        credits: [...refund, ...prev.credits],
+        generations: prev.generations.map((g) =>
+          g.id === generationId
+            ? {
+                ...g,
+                status: projectStatus,
+                error_message: update.error ?? null,
+                completed_at:
+                  update.status === "completed" || update.status === "failed" ? now : null,
+              }
+            : g,
+        ),
+        projects: prev.projects.map((p) =>
+          p.id === target.project_id
+            ? {
+                ...p,
+                status: projectStatus,
+                video_url: update.videoUrl ?? p.video_url,
+                updated_at: now,
+              }
+            : p,
+        ),
+      };
+    });
+  }, []);
+
+  const addCredits = useCallback(
+    (amount: number, reason: CreditReason) => {
+      setData((prev) => ({
+        ...prev,
+        credits: [
+          {
+            id: uid(),
+            user_id: user?.id ?? "anonymous",
+            amount,
+            reason,
+            created_at: new Date().toISOString(),
+          },
+          ...prev.credits,
+        ],
+      }));
     },
     [user],
   );
+
+  const getProject = useCallback(
+    (id: string) => data.projects.find((p) => p.id === id),
+    [data.projects],
+  );
+
+  const generationsFor = useCallback(
+    (projectId: string) => data.generations.filter((g) => g.project_id === projectId),
+    [data.generations],
+  );
+
+  const activeGeneration = useCallback(
+    (projectId: string) => data.generations.find((g) => g.project_id === projectId),
+    [data.generations],
+  );
+
+  const value = useMemo(
+    () => ({
+      ...data,
+      ready,
+      balance,
+      createProject,
+      regenerate,
+      addCredits,
+      getProject,
+      generationsFor,
+      linkGeneration,
+      applyJobUpdate,
+      activeGeneration,
+    }),
+    [
+      data,
+      ready,
+      balance,
+      createProject,
+      regenerate,
+      addCredits,
+      getProject,
+      generationsFor,
+      linkGeneration,
+      applyJobUpdate,
+      activeGeneration,
+    ],
+  );
+
 
   const addCredits = useCallback(
     (amount: number, reason: CreditReason) => {
