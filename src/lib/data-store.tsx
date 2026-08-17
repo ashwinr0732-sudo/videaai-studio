@@ -56,14 +56,25 @@ export interface NewProjectInput {
   style: VideoStyle;
 }
 
+export interface JobUpdate {
+  status: "queued" | "processing" | "completed" | "failed";
+  videoUrl?: string | null;
+  error?: string | null;
+}
+
 interface DataState extends DataShape {
   ready: boolean;
   balance: number;
   createProject: (input: NewProjectInput) => Project;
-  regenerate: (projectId: string) => void;
+  regenerate: (projectId: string) => Generation | undefined;
   addCredits: (amount: number, reason: CreditReason) => void;
   getProject: (id: string) => Project | undefined;
   generationsFor: (projectId: string) => Generation[];
+  /** Attach the provider job returned by the server to a local generation row. */
+  linkGeneration: (generationId: string, providerJobId: string, provider: string) => void;
+  /** Apply a polled provider status to the generation and its project. */
+  applyJobUpdate: (generationId: string, update: JobUpdate) => void;
+  activeGeneration: (projectId: string) => Generation | undefined;
 }
 
 const DataContext = createContext<DataState | null>(null);

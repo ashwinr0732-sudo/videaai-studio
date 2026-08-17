@@ -18,6 +18,8 @@ import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppCreateRouteImport } from './routes/app.create'
 import { Route as AppPricingRouteImport } from './routes/app.pricing'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
+import { Route as ApiVideoContentJobIdRouteImport } from './routes/api/video-content.$jobId'
+import { Route as ApiVideoStatusJobIdRouteImport } from './routes/api/video-status.$jobId'
 import { Route as AppProjectsIndexRouteImport } from './routes/app.projects.index'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/app.projects.$projectId'
 
@@ -66,6 +68,16 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiVideoContentJobIdRoute = ApiVideoContentJobIdRouteImport.update({
+  id: '/api/video-content/$jobId',
+  path: '/api/video-content/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVideoStatusJobIdRoute = ApiVideoStatusJobIdRouteImport.update({
+  id: '/api/video-status/$jobId',
+  path: '/api/video-status/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -87,6 +99,8 @@ export interface FileRoutesByFullPath {
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
+  '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
+  '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects/': typeof AppProjectsIndexRoute
 }
@@ -99,6 +113,8 @@ export interface FileRoutesByTo {
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app': typeof AppIndexRoute
+  '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
+  '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects': typeof AppProjectsIndexRoute
 }
@@ -113,6 +129,8 @@ export interface FileRoutesById {
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/': typeof AppIndexRoute
+  '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
+  '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects/': typeof AppProjectsIndexRoute
 }
@@ -128,6 +146,8 @@ export interface FileRouteTypes {
     | '/app/pricing'
     | '/app/settings'
     | '/app/'
+    | '/api/video-content/$jobId'
+    | '/api/video-status/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -140,6 +160,8 @@ export interface FileRouteTypes {
     | '/app/pricing'
     | '/app/settings'
     | '/app'
+    | '/api/video-content/$jobId'
+    | '/api/video-status/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects'
   id:
@@ -153,6 +175,8 @@ export interface FileRouteTypes {
     | '/app/pricing'
     | '/app/settings'
     | '/app/'
+    | '/api/video-content/$jobId'
+    | '/api/video-status/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects/'
   fileRoutesById: FileRoutesById
@@ -163,6 +187,8 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
   ApiGenerateVideoRoute: typeof ApiGenerateVideoRoute
+  ApiVideoContentJobIdRoute: typeof ApiVideoContentJobIdRoute
+  ApiVideoStatusJobIdRoute: typeof ApiVideoStatusJobIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -230,6 +256,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/video-content/$jobId': {
+      id: '/api/video-content/$jobId'
+      path: '/api/video-content/$jobId'
+      fullPath: '/api/video-content/$jobId'
+      preLoaderRoute: typeof ApiVideoContentJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/video-status/$jobId': {
+      id: '/api/video-status/$jobId'
+      path: '/api/video-status/$jobId'
+      fullPath: '/api/video-status/$jobId'
+      preLoaderRoute: typeof ApiVideoStatusJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/projects/': {
       id: '/app/projects/'
       path: '/projects'
@@ -273,6 +313,8 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
   ApiGenerateVideoRoute: ApiGenerateVideoRoute,
+  ApiVideoContentJobIdRoute: ApiVideoContentJobIdRoute,
+  ApiVideoStatusJobIdRoute: ApiVideoStatusJobIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
