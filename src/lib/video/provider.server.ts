@@ -75,7 +75,7 @@ function mapStatus(raw: unknown): JobStatus {
     case "completed":
       return "completed";
     case "failed":
-ađ      return "failed";
+return "failed";
     case "queued":
       return "queued";
     default:
