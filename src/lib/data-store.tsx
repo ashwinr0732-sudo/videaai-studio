@@ -345,50 +345,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-
-  const addCredits = useCallback(
-    (amount: number, reason: CreditReason) => {
-      setData((prev) => ({
-        ...prev,
-        credits: [
-          {
-            id: uid(),
-            user_id: user?.id ?? "anonymous",
-            amount,
-            reason,
-            created_at: new Date().toISOString(),
-          },
-          ...prev.credits,
-        ],
-      }));
-    },
-    [user],
-  );
-
-  const getProject = useCallback(
-    (id: string) => data.projects.find((p) => p.id === id),
-    [data.projects],
-  );
-
-  const generationsFor = useCallback(
-    (projectId: string) => data.generations.filter((g) => g.project_id === projectId),
-    [data.generations],
-  );
-
-  const value = useMemo(
-    () => ({
-      ...data,
-      ready,
-      balance,
-      createProject,
-      regenerate,
-      addCredits,
-      getProject,
-      generationsFor,
-    }),
-    [data, ready, balance, createProject, regenerate, addCredits, getProject, generationsFor],
-  );
-
   return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
 
