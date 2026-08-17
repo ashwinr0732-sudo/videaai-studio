@@ -64,7 +64,8 @@ function OptionGroup<T extends string | number>({
 }
 
 function CreatePage() {
-  const { createProject, balance } = useData();
+  const { createProject, balance, linkGeneration, applyJobUpdate } = useData();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [prompt, setPrompt] = useState("");
@@ -76,25 +77,50 @@ function CreatePage() {
   const cost = CREDIT_COST[duration];
   const canSubmit = prompt.trim().length >= 8 && balance >= cost && !submitting;
 
-  function handleGenerate() {
+  async function handleGenerate() {
     if (!canSubmit) return;
+    if (!user) {
+      toast.error("Please sign in to generate videos.");
+      return;
+    }
+    if (prompt.trim().length < 8) {
+      toast.error("Prompt must be at least 8 characters.");
+      return;
+    }
     setSubmitting(true);
-    // The provider request is intentionally not implemented client-side:
-    // the project row is queued and a secure server worker will pick it up.
-    const project = createProject({
+    // Credits are reserved locally, then the secure server endpoint starts the
+    // real provider job. No provider key ever reaches the browser.
+    const { project, generation } = createProject({
       prompt,
       duration_seconds: duration,
       aspect_ratio: ratio,
       style,
     });
-    setTimeout(() => {
-      setSubmitting(false);
-      toast.success("Project queued", {
-        description: "It will render as soon as a generation provider is connected.",
+    try {
+      const result = await startGeneration(user.id, {
+        prompt: prompt.trim(),
+        duration,
+        aspectRatio: ratio,
+        style,
+        projectId: project.id,
+        balance,
       });
+      linkGeneration(generation.id, result.generationId, result.provider);
+      toast.success("Generation started", { description: "Tracking progress on the project page." });
       navigate({ to: "/app/projects/$projectId", params: { projectId: project.id } });
-    }, 900);
+    } catch (error) {
+      applyJobUpdate(generation.id, {
+        status: "failed",
+        error: error instanceof Error ? error.message : "Generation failed to start.",
+      });
+      toast.error("Could not start generation", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
   }
+
 
   return (
     <DashboardShell title="Create" description="Describe your video and pick its look.">
