@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as ApiGenerateVideoRouteImport } from './routes/api/generate-video'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppCreateRouteImport } from './routes/app.create'
 import { Route as AppPricingRouteImport } from './routes/app.pricing'
@@ -38,6 +39,11 @@ const LoginRoute = LoginRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGenerateVideoRoute = ApiGenerateVideoRouteImport.update({
+  id: '/api/generate-video',
+  path: '/api/generate-video',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -100,6 +108,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/login': typeof LoginRoute
   '/signup': typeof SignupRoute
+  '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
   '/app/settings': typeof AppSettingsRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
     | '/app/settings'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
     | '/'
     | '/login'
     | '/signup'
+    | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
     | '/app/settings'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/login'
     | '/signup'
+    | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
     | '/app/settings'
@@ -150,6 +162,7 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   LoginRoute: typeof LoginRoute
   SignupRoute: typeof SignupRoute
+  ApiGenerateVideoRoute: typeof ApiGenerateVideoRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -180,6 +193,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/generate-video': {
+      id: '/api/generate-video'
+      path: '/api/generate-video'
+      fullPath: '/api/generate-video'
+      preLoaderRoute: typeof ApiGenerateVideoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -252,6 +272,7 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   LoginRoute: LoginRoute,
   SignupRoute: SignupRoute,
+  ApiGenerateVideoRoute: ApiGenerateVideoRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
