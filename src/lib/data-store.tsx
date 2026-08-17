@@ -65,7 +65,7 @@ export interface JobUpdate {
 interface DataState extends DataShape {
   ready: boolean;
   balance: number;
-  createProject: (input: NewProjectInput) => Project;
+  createProject: (input: NewProjectInput) => { project: Project; generation: Generation };
   regenerate: (projectId: string) => Generation | undefined;
   addCredits: (amount: number, reason: CreditReason) => void;
   getProject: (id: string) => Project | undefined;
