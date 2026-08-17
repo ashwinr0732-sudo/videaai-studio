@@ -30,7 +30,7 @@ function CreditPill() {
   );
 }
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   return (
     <nav className="space-y-1">
@@ -57,7 +57,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarBody({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   return (
