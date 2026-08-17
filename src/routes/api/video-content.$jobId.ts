@@ -3,7 +3,8 @@ import { createFileRoute } from "@tanstack/react-router";
 export const Route = createFileRoute("/api/video-content/$jobId")({
   server: {
     handlers: {
-      GET: async ({ params }) => {
+      GET: async ({ params, request }) => {
+        const download = new URL(request.url).searchParams.has("download");
         const { getVideoProvider, VideoProviderError } = await import("@/lib/video/provider.server");
         try {
           const upstream = await getVideoProvider().fetchContent(params.jobId);
@@ -12,7 +13,7 @@ export const Route = createFileRoute("/api/video-content/$jobId")({
             headers: {
               "content-type": "video/mp4",
               "cache-control": "private, max-age=600",
-              "content-disposition": `inline; filename="videaai-${params.jobId}.mp4"`,
+              "content-disposition": `${download ? "attachment" : "inline"}; filename="videaai-${params.jobId}.mp4"`,
             },
           });
         } catch (error) {
