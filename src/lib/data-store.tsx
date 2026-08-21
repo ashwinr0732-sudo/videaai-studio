@@ -10,7 +10,7 @@ import {
 import { uid } from "./id";
 import { useAuth } from "./auth";
 import {
-  CREDIT_COST,
+  creditCost,
   type AspectRatio,
   type CreditEntry,
   type CreditReason,
@@ -143,7 +143,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         created_at: now,
         updated_at: now,
       };
-      const cost = CREDIT_COST[input.duration_seconds];
+      const cost = creditCost(input.duration_seconds);
       const generation: Generation = {
         id: uid(),
         project_id: project.id,
@@ -181,7 +181,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       const userId = user?.id ?? "anonymous";
       const project = data.projects.find((p) => p.id === projectId);
       if (!project) return undefined;
-      const cost = CREDIT_COST[project.duration_seconds];
+      const cost = creditCost(project.duration_seconds);
       const generation: Generation = {
         id: uid(),
         project_id: projectId,

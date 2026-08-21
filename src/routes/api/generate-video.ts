@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { CREDIT_COST } from "@/lib/types";
+import { creditCost } from "@/lib/types";
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(8, "Prompt must be at least 8 characters.").max(2000),
@@ -35,7 +35,7 @@ export const Route = createFileRoute("/api/generate-video")({
         }
         const input = parsed.data;
 
-        const cost = CREDIT_COST[input.duration];
+        const cost = creditCost(input.duration);
         if (input.balance < cost) {
           return json({ error: `Not enough credits. This render costs ${cost}.` }, 402);
         }

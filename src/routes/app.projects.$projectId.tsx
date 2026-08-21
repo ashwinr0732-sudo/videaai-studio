@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
-import { CREDIT_COST } from "@/lib/types";
+import { creditCost } from "@/lib/types";
 import { fetchJobStatus, phaseLabel, startGeneration } from "@/lib/video/client";
 
 export const Route = createFileRoute("/app/projects/$projectId")({
@@ -104,7 +104,7 @@ function ProjectDetailPage() {
     );
   }
 
-  const cost = CREDIT_COST[project.duration_seconds];
+  const cost = creditCost(project.duration_seconds);
   const ready = project.status === "ready" && project.video_url;
 
   async function handleRegenerate() {

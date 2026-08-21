@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { startGeneration } from "@/lib/video/client";
-import { CREDIT_COST, type AspectRatio, type DurationSeconds, type VideoStyle } from "@/lib/types";
+import { creditCost, type AspectRatio, type DurationSeconds, type VideoStyle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/create")({
@@ -76,7 +76,7 @@ function CreatePage() {
   const [style, setStyle] = useState<VideoStyle>("Cinematic");
   const [submitting, setSubmitting] = useState(false);
 
-  const cost = CREDIT_COST[duration];
+  const cost = creditCost(duration);
   const canSubmit = prompt.trim().length >= 8 && balance >= cost && !submitting;
 
   async function handleGenerate() {
