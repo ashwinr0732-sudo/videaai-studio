@@ -14,7 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      video_jobs: {
+        Row: {
+          actual_duration_seconds: number | null
+          aspect_ratio: string
+          audio_codec: string | null
+          continuity_bible: string | null
+          created_at: string
+          credits_spent: number
+          error_message: string | null
+          failed_scene: number | null
+          final_path: string | null
+          fps: number | null
+          height: number | null
+          id: string
+          phase: string
+          progress: number
+          project_ref: string
+          prompt: string
+          requested_duration: number
+          scenes: Json
+          size_bytes: number | null
+          status: string
+          style: string
+          updated_at: string
+          user_ref: string
+          video_codec: string | null
+          width: number | null
+        }
+        Insert: {
+          actual_duration_seconds?: number | null
+          aspect_ratio: string
+          audio_codec?: string | null
+          continuity_bible?: string | null
+          created_at?: string
+          credits_spent?: number
+          error_message?: string | null
+          failed_scene?: number | null
+          final_path?: string | null
+          fps?: number | null
+          height?: number | null
+          id?: string
+          phase?: string
+          progress?: number
+          project_ref: string
+          prompt: string
+          requested_duration: number
+          scenes?: Json
+          size_bytes?: number | null
+          status?: string
+          style: string
+          updated_at?: string
+          user_ref: string
+          video_codec?: string | null
+          width?: number | null
+        }
+        Update: {
+          actual_duration_seconds?: number | null
+          aspect_ratio?: string
+          audio_codec?: string | null
+          continuity_bible?: string | null
+          created_at?: string
+          credits_spent?: number
+          error_message?: string | null
+          failed_scene?: number | null
+          final_path?: string | null
+          fps?: number | null
+          height?: number | null
+          id?: string
+          phase?: string
+          progress?: number
+          project_ref?: string
+          prompt?: string
+          requested_duration?: number
+          scenes?: Json
+          size_bytes?: number | null
+          status?: string
+          style?: string
+          updated_at?: string
+          user_ref?: string
+          video_codec?: string | null
+          width?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
