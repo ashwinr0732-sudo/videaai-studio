@@ -87,3 +87,8 @@ export const CREDIT_COST: Record<number, number> = {
   5: 1,
   10: 2,
 };
+
+/** Credit price for a requested duration, with a safe fallback for legacy rows. */
+export function creditCost(duration: number): number {
+  return CREDIT_COST[duration] ?? Math.max(1, Math.ceil(duration / 8));
+}
