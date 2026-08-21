@@ -76,8 +76,14 @@ export interface CreditEntry {
   created_at: string;
 }
 
-export const CREDIT_COST: Record<DurationSeconds, number> = {
+/**
+ * One credit per generated clip. Legacy 5s/10s keys are kept so projects created
+ * before the multi-scene workflow still price and refund correctly.
+ */
+export const CREDIT_COST: Record<number, number> = {
+  8: 1,
+  15: 2,
+  30: 4,
   5: 1,
   10: 2,
-  30: 5,
 };
