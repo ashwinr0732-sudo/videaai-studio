@@ -16,7 +16,25 @@ export type ProjectStatus = "draft" | "queued" | "processing" | "ready" | "faile
 
 export type AspectRatio = "9:16" | "16:9" | "1:1";
 export type VideoStyle = "Cinematic" | "Realistic" | "Anime" | "3D" | "Animation";
-export type DurationSeconds = 5 | 10 | 30;
+/**
+ * Durations the product offers. The video model can only render 4/6/8-second
+ * clips, so anything above 8s is composed from several planned scenes that are
+ * stitched server-side (see SCENE_PLAN).
+ */
+export type DurationSeconds = 8 | 15 | 30;
+
+/**
+ * Scene breakdown per requested duration, in provider-supported clip lengths.
+ * 8s  -> a single clip (unchanged single-clip behaviour).
+ * 15s -> 8 + 6 = 14s. The model has no 7-second clip, so 14s is the closest
+ *        achievable total; the UI always shows the verified actual duration.
+ * 30s -> 8 + 8 + 8 + 6 = exactly 30s.
+ */
+export const SCENE_PLAN: Record<DurationSeconds, readonly (4 | 6 | 8)[]> = {
+  8: [8],
+  15: [8, 6],
+  30: [8, 8, 8, 6],
+};
 
 export interface Project {
   id: UUID;
