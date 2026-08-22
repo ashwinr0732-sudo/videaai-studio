@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 
-import { creditCost } from "@/lib/types";
+import { creditCost, SCENE_PLAN } from "@/lib/types";
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(8, "Prompt must be at least 8 characters.").max(2000),
-  duration: z.union([z.literal(5), z.literal(10), z.literal(30)]),
+  duration: z.union([z.literal(8), z.literal(15), z.literal(30)]),
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]),
   style: z.enum(["Cinematic", "Realistic", "Anime", "3D", "Animation"]),
   projectId: z.string().min(1),
-  /** Credit balance available to the caller. Moves server-side with Lovable Cloud. */
+  /** Credit balance available to the caller. Moves server-side with Cloud auth. */
   balance: z.number().int().nonnegative(),
 });
 
@@ -40,24 +40,29 @@ export const Route = createFileRoute("/api/generate-video")({
           return json({ error: `Not enough credits. This render costs ${cost}.` }, 402);
         }
 
-        const { getVideoProvider, VideoProviderError } = await import("@/lib/video/provider.server");
+        const { createJob } = await import("@/lib/video/jobs.server");
+        const { getVideoProvider } = await import("@/lib/video/provider.server");
         try {
-          const job = await getVideoProvider().createJob({
+          // The row is created in a queued state; scene planning and the first
+          // provider call happen on the first status poll so this request stays fast.
+          const job = await createJob({
+            userRef: userId,
+            projectRef: input.projectId,
             prompt: input.prompt,
             duration: input.duration,
             aspectRatio: input.aspectRatio,
             style: input.style,
+            credits: cost,
           });
           return json({
             generationId: job.id,
             projectId: input.projectId,
-            status: job.status,
+            status: "queued",
             provider: getVideoProvider().name,
+            sceneCount: job.sceneCount,
+            scenePlan: SCENE_PLAN[input.duration],
           });
         } catch (error) {
-          if (error instanceof VideoProviderError) {
-            return json({ error: error.message }, error.status >= 400 ? error.status : 502);
-          }
           console.error(error);
           return json({ error: "Video generation failed to start." }, 502);
         }
