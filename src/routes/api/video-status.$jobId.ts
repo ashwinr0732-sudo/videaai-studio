@@ -1,5 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 
+/**
+ * Poll endpoint. Every call advances the render state machine by one step
+ * (plan -> generate scene N -> store original -> stitch -> verify -> complete),
+ * so the long-running work never blocks a single request.
+ */
 export const Route = createFileRoute("/api/video-status/$jobId")({
   server: {
     handlers: {
@@ -11,14 +16,19 @@ export const Route = createFileRoute("/api/video-status/$jobId")({
             headers: { "content-type": "application/json" },
           });
         }
-        const { getVideoProvider, VideoProviderError } = await import("@/lib/video/provider.server");
+        const { advanceJob } = await import("@/lib/video/jobs.server");
         try {
-          const job = await getVideoProvider().getJob(params.jobId);
-          return Response.json(job);
+          const state = await advanceJob(params.jobId, userId);
+          if (!state) {
+            return new Response(JSON.stringify({ error: "Render not found." }), {
+              status: 404,
+              headers: { "content-type": "application/json" },
+            });
+          }
+          return Response.json(state);
         } catch (error) {
-          const message =
-            error instanceof VideoProviderError ? error.message : "Could not read job status.";
-          return new Response(JSON.stringify({ error: message }), {
+          console.error(error);
+          return new Response(JSON.stringify({ error: "Could not read render status." }), {
             status: 502,
             headers: { "content-type": "application/json" },
           });

@@ -47,6 +47,8 @@ export interface Project {
   status: ProjectStatus;
   thumbnail_url: string | null;
   video_url: string | null;
+  /** Verified duration of the delivered file; null until a render is verified. */
+  actual_duration_seconds: number | null;
   created_at: string;
   updated_at: string;
 }

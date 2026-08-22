@@ -9,7 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { startGeneration } from "@/lib/video/client";
-import { creditCost, type AspectRatio, type DurationSeconds, type VideoStyle } from "@/lib/types";
+import { creditCost, SCENE_PLAN, type AspectRatio, type DurationSeconds, type VideoStyle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/app/create")({
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/app/create")({
   component: CreatePage,
 });
 
-const DURATIONS: DurationSeconds[] = [5, 10, 30];
+const DURATIONS: DurationSeconds[] = [8, 15, 30];
 const RATIOS: AspectRatio[] = ["9:16", "16:9", "1:1"];
 const STYLES: VideoStyle[] = ["Cinematic", "Realistic", "Anime", "3D", "Animation"];
 
@@ -71,12 +71,13 @@ function CreatePage() {
   const navigate = useNavigate();
 
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState<DurationSeconds>(5);
+  const [duration, setDuration] = useState<DurationSeconds>(8);
   const [ratio, setRatio] = useState<AspectRatio>("16:9");
   const [style, setStyle] = useState<VideoStyle>("Cinematic");
   const [submitting, setSubmitting] = useState(false);
 
   const cost = creditCost(duration);
+  const scenePlan = SCENE_PLAN[duration];
   const canSubmit = prompt.trim().length >= 8 && balance >= cost && !submitting;
 
   async function handleGenerate() {
@@ -148,6 +149,11 @@ function CreatePage() {
             onChange={setDuration}
             render={(d) => `${d} seconds`}
           />
+          <p className="text-muted-foreground -mt-3 text-xs">
+            {scenePlan.length === 1
+              ? "Rendered as a single 8-second clip."
+              : `Rendered as ${scenePlan.length} planned scenes (${scenePlan.join("s + ")}s) and stitched into one file. Final length is verified after stitching.`}
+          </p>
           <OptionGroup label="Aspect ratio" options={RATIOS} value={ratio} onChange={setRatio} />
           <OptionGroup label="Style" options={STYLES} value={style} onChange={setStyle} />
 
