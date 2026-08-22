@@ -60,6 +60,10 @@ export interface JobUpdate {
   status: "queued" | "processing" | "completed" | "failed";
   videoUrl?: string | null;
   error?: string | null;
+  /** Verified duration of the finished file, measured server-side. */
+  actualDuration?: number | null;
+  /** Credits the server says should be returned after a failure. */
+  refundCredits?: number;
 }
 
 interface DataState extends DataShape {
@@ -140,6 +144,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: "queued",
         thumbnail_url: null,
         video_url: null,
+        actual_duration_seconds: null,
         created_at: now,
         updated_at: now,
       };
@@ -197,7 +202,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setData((prev) => ({
         projects: prev.projects.map((p) =>
           p.id === projectId
-            ? { ...p, status: "queued", video_url: null, updated_at: now }
+            ? { ...p, status: "queued", video_url: null, actual_duration_seconds: null, updated_at: now }
             : p,
         ),
         generations: [generation, ...prev.generations],
@@ -274,6 +279,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ...p,
                 status: projectStatus,
                 video_url: update.videoUrl ?? p.video_url,
+                actual_duration_seconds:
+                  update.actualDuration ?? p.actual_duration_seconds ?? null,
                 updated_at: now,
               }
             : p,
