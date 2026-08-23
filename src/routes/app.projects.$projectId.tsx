@@ -9,7 +9,14 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data-store";
 import { creditCost } from "@/lib/types";
-import { fetchJobStatus, phaseLabel, startGeneration } from "@/lib/video/client";
+import {
+  fetchJobStatus,
+  formatDuration,
+  phaseLabel,
+  startGeneration,
+  videoSrc,
+  type JobStatusResult,
+} from "@/lib/video/client";
 
 export const Route = createFileRoute("/app/projects/$projectId")({
   head: () => ({
@@ -23,9 +30,9 @@ export const Route = createFileRoute("/app/projects/$projectId")({
   component: ProjectDetailPage,
 });
 
-const POLL_INTERVAL_MS = 8000;
+const POLL_INTERVAL_MS = 6000;
 /** Hard stop so a stuck provider job can't spin forever. */
-const TIMEOUT_MS = 12 * 60 * 1000;
+const TIMEOUT_MS = 25 * 60 * 1000;
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
@@ -40,6 +47,7 @@ function ProjectDetailPage() {
 
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("Preparing");
+  const [job, setJob] = useState<JobStatusResult | null>(null);
   const [restarting, setRestarting] = useState(false);
   const startedAt = useRef<number | null>(null);
 
@@ -51,20 +59,28 @@ function ProjectDetailPage() {
     async function poll() {
       if (cancelled || !user || !jobId) return;
       try {
-        const job = await fetchJobStatus(user.id, jobId);
+        const state = await fetchJobStatus(user.id, jobId);
         if (cancelled) return;
-        setProgress(job.status === "completed" ? 100 : job.progress);
-        setPhase(phaseLabel(job.status, job.progress));
-        if (job.status === "completed" || job.status === "failed") {
+        setJob(state);
+        setProgress(state.status === "completed" ? 100 : state.progress);
+        setPhase(phaseLabel(state));
+        if (state.status === "completed" || state.status === "failed") {
           applyJobUpdate(active!.id, {
-            status: job.status,
-            videoUrl: job.videoUrl,
-            error: job.error,
+            status: state.status,
+            videoUrl: state.videoUrl,
+            error: state.error,
+            actualDuration: state.actualDuration,
+            refundCredits: state.refundCredits,
           });
-          if (job.status === "failed") {
-            toast.error("Generation failed", { description: job.error ?? "Provider error." });
+          if (state.status === "failed") {
+            toast.error(
+              state.failedScene ? `Scene ${state.failedScene} failed` : "Generation failed",
+              { description: `${state.error ?? "Provider error."} Credits have been refunded.` },
+            );
           } else {
-            toast.success("Your video is ready.");
+            toast.success(
+              `Your video is ready — ${formatDuration(state.actualDuration) ?? "verified"}.`,
+            );
           }
           return;
         }
@@ -167,7 +183,9 @@ function ProjectDetailPage() {
                 <video
                   controls
                   className="h-full w-full object-contain"
-                  src={project.video_url ?? undefined}
+                  src={
+                    project.video_url && user ? videoSrc(project.video_url, user.id) : undefined
+                  }
                 />
               ) : (
                 <div className="absolute inset-0 grid place-items-center gap-3 text-center">
@@ -178,7 +196,9 @@ function ProjectDetailPage() {
                         <p className="mt-3 text-sm font-medium">{phase}</p>
                         <Progress value={Math.max(progress, 5)} className="mt-3" />
                         <p className="text-muted-foreground mt-2 text-xs">
-                          Rendering usually takes 1–3 minutes.
+                          {job && job.sceneCount > 1
+                            ? `${job.sceneCount} scenes are generated in sequence, then stitched and verified. This takes a few minutes.`
+                            : "Rendering usually takes 1–3 minutes."}
                         </p>
                       </>
                     ) : (
@@ -200,8 +220,11 @@ function ProjectDetailPage() {
               <StatusBadge status={project.status} />
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={!ready} asChild={!!ready}>
-                  {ready ? (
-                    <a href={`${project.video_url}?download=1`} download={`${project.title}.mp4`}>
+                  {ready && user ? (
+                    <a
+                      href={videoSrc(project.video_url!, user.id, true)}
+                      download={`${project.title}.mp4`}
+                    >
                       <Download className="h-4 w-4" /> Download
                     </a>
                   ) : (
@@ -230,7 +253,21 @@ function ProjectDetailPage() {
             <div className="panel space-y-3 p-5 text-sm">
               <h2 className="font-semibold">Details</h2>
               {[
-                ["Duration", `${project.duration_seconds}s`],
+                [
+                  "Duration",
+                  project.actual_duration_seconds
+                    ? `${formatDuration(project.actual_duration_seconds)} (verified)`
+                    : `${project.duration_seconds}s requested`,
+                ],
+                ...(job?.width && job?.height
+                  ? ([["Resolution", `${job.width}x${job.height}`]] as [string, string][])
+                  : []),
+                ...(job?.fps
+                  ? ([["Frame rate", `${job.fps} fps`]] as [string, string][])
+                  : []),
+                ...(job?.videoCodec
+                  ? ([["Codec", job.videoCodec]] as [string, string][])
+                  : []),
                 ["Aspect ratio", project.aspect_ratio],
                 ["Style", project.style],
                 ["Created", new Date(project.created_at).toLocaleString()],
