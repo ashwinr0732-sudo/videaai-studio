@@ -158,7 +158,7 @@ Plan the continuity bible and one prompt per scene.`;
     return {
       index: i + 1,
       seconds,
-      title: (scene.title ?? `Scene ${i + 1}`).trim().slice(0, 80),
+      title: (asText(scene.title) || `Scene ${i + 1}`).slice(0, 80),
       prompt: text,
     };
   });
