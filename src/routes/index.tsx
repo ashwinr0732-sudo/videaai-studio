@@ -39,7 +39,7 @@ const FEATURES = [
   {
     icon: Zap,
     title: "Built for every format",
-    body: "Render 9:16, 16:9 or 1:1 at 5, 10 or 30 seconds for any channel you publish to.",
+    body: "Render 9:16, 16:9 or 1:1 at 8, 15 or 30 seconds for any channel you publish to.",
   },
 ];
 
@@ -132,7 +132,7 @@ function Landing() {
         <section id="pricing" className="mx-auto max-w-6xl px-4 pb-24">
           <h2 className="text-center text-3xl font-semibold">Simple, credit-based pricing</h2>
           <p className="text-muted-foreground mx-auto mt-3 mb-10 max-w-md text-center text-sm">
-            Credits scale with clip length: 1 for 5s, 2 for 10s and 5 for 30s.
+            Credits scale with the number of scenes rendered: 1 for 8s, 2 for 15s and 4 for 30s.
           </p>
           <PricingSection />
         </section>
