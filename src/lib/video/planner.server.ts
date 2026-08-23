@@ -121,14 +121,28 @@ Plan the continuity bible and one prompt per scene.`;
   const content = payload.choices?.[0]?.message?.content;
   if (!content) throw new PlannerError("Scene planning returned no plan.", 502);
 
-  let parsed: { continuityBible?: string; scenes?: { title?: string; prompt?: string }[] };
+  let parsed: { continuityBible?: unknown; scenes?: { title?: unknown; prompt?: unknown }[] };
   try {
     parsed = JSON.parse(content.replace(/^```(?:json)?|```$/g, "").trim());
   } catch {
     throw new PlannerError("Scene planning returned an unreadable plan.", 502);
   }
 
-  const bible = (parsed.continuityBible ?? "").trim();
+  // Models sometimes answer with a structured object instead of a string;
+  // flatten it into a readable reference sheet rather than failing the render.
+  const asText = (value: unknown): string => {
+    if (typeof value === "string") return value.trim();
+    if (Array.isArray(value)) return value.map(asText).filter(Boolean).join("; ");
+    if (value && typeof value === "object") {
+      return Object.entries(value as Record<string, unknown>)
+        .map(([k, v]) => `${k}: ${asText(v)}`)
+        .filter(Boolean)
+        .join("\n");
+    }
+    return value == null ? "" : String(value);
+  };
+
+  const bible = asText(parsed.continuityBible);
   const raw = parsed.scenes ?? [];
   if (!bible || raw.length < input.sceneSeconds.length) {
     throw new PlannerError("Scene planning returned an incomplete plan.", 502);
@@ -136,7 +150,8 @@ Plan the continuity bible and one prompt per scene.`;
 
   const scenes: PlannedScene[] = input.sceneSeconds.map((seconds, i) => {
     const scene = raw[i]!;
-    const text = (scene.prompt ?? "").trim();
+    const text = asText(scene.prompt);
+
     if (text.length < 40) {
       throw new PlannerError(`Scene ${i + 1} was planned without a usable prompt.`, 502);
     }
