@@ -15,7 +15,7 @@ export const PLANS: Plan[] = [
     price: 0,
     credits: 25,
     tagline: "Explore what VideaAI can do.",
-    features: ["25 credits on signup", "Up to 10s clips", "720p exports", "Community support"],
+    features: ["25 credits on signup", "Up to 15s multi-scene videos", "720p exports", "Community support"],
   },
   {
     id: "creator",
@@ -25,7 +25,7 @@ export const PLANS: Plan[] = [
     tagline: "For makers shipping content weekly.",
     features: [
       "400 credits / month",
-      "Up to 30s clips",
+      "Up to 30s multi-scene videos",
       "1080p exports",
       "All styles unlocked",
       "Priority queue",
