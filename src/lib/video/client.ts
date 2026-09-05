@@ -1,6 +1,18 @@
+import { supabase } from "@/integrations/supabase/client";
 import type { AspectRatio, DurationSeconds, VideoStyle } from "@/lib/types";
 
-/** Browser-side client for the server video API. Contains no provider secrets. */
+/**
+ * Browser-side client for the server video API. Contains no provider secrets.
+ * Every call carries the real Supabase access token; the server never trusts a
+ * user id or credit balance sent from here.
+ */
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) throw new VideoApiError("Your session has expired. Please sign in again.");
+  return { authorization: `Bearer ${token}` };
+}
 
 export interface StartGenerationInput {
   prompt: string;
@@ -8,7 +20,6 @@ export interface StartGenerationInput {
   aspectRatio: AspectRatio;
   style: VideoStyle;
   projectId: string;
-  balance: number;
 }
 
 export interface StartGenerationResult {
@@ -54,6 +65,8 @@ export interface JobStatusResult {
   fps: number | null;
   videoCodec: string | null;
   refundCredits: number;
+  /** Short-lived signed token for playback/download of a finished render. */
+  mediaToken?: string | null;
 }
 
 export class VideoApiError extends Error {}
@@ -65,25 +78,33 @@ async function parse<T>(res: Response): Promise<T> {
   return body;
 }
 
-export async function startGeneration(userId: string, input: StartGenerationInput) {
+export async function startGeneration(input: StartGenerationInput) {
   const res = await fetch("/api/generate-video", {
     method: "POST",
-    headers: { "content-type": "application/json", "x-videaai-user": userId },
+    headers: { "content-type": "application/json", ...(await authHeaders()) },
     body: JSON.stringify(input),
   });
   return parse<StartGenerationResult>(res);
 }
 
-export async function fetchJobStatus(userId: string, jobId: string) {
-  const res = await fetch(`/api/video-status/${jobId}`, {
-    headers: { "x-videaai-user": userId },
-  });
+export async function fetchJobStatus(jobId: string) {
+  const res = await fetch(`/api/video-status/${jobId}`, { headers: await authHeaders() });
   return parse<JobStatusResult>(res);
 }
 
-/** `<video>` and download links cannot send headers, so the owner id rides along. */
-export function videoSrc(url: string, userId: string, download = false) {
-  return `${url}?u=${encodeURIComponent(userId)}${download ? "&download=1" : ""}`;
+/** Ask the server for a short-lived signed playback token for a finished render. */
+export async function fetchMediaToken(jobId: string) {
+  const res = await fetch(`/api/video-token/${jobId}`, { headers: await authHeaders() });
+  const body = await parse<{ token: string }>(res);
+  return body.token;
+}
+
+/**
+ * `<video>` and download links cannot send headers, so a server-signed,
+ * expiring token is used instead of any client-supplied identity.
+ */
+export function videoSrc(url: string, token: string, download = false) {
+  return `${url}?t=${encodeURIComponent(token)}${download ? "&download=1" : ""}`;
 }
 
 /** Human-facing phase labels for the generation lifecycle. */
