@@ -430,3 +430,9 @@ export async function finalVideoBytes(jobId: string, userRef: string) {
   if (!job || job.user_ref !== userRef || !job.final_path) return null;
   return { bytes: await download(job.final_path), job };
 }
+
+/** Ownership check used before minting a playback token. */
+export async function jobBelongsTo(jobId: string, userRef: string) {
+  const job = await loadJob(jobId);
+  return Boolean(job && job.user_ref === userRef && job.final_path);
+}
