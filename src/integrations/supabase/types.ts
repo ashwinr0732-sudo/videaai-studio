@@ -189,6 +189,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      refund_credits: {
+        Args: { _amount: number; _note: string; _user_id: string }
+        Returns: number
+      }
+      spend_credits: {
+        Args: { _amount: number; _note: string; _user_id: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "user"
