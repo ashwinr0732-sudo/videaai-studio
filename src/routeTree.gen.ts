@@ -20,6 +20,7 @@ import { Route as AppPricingRouteImport } from './routes/app.pricing'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as ApiVideoContentJobIdRouteImport } from './routes/api/video-content.$jobId'
 import { Route as ApiVideoStatusJobIdRouteImport } from './routes/api/video-status.$jobId'
+import { Route as ApiVideoTokenJobIdRouteImport } from './routes/api/video-token.$jobId'
 import { Route as AppProjectsIndexRouteImport } from './routes/app.projects.index'
 import { Route as AppProjectsProjectIdRouteImport } from './routes/app.projects.$projectId'
 
@@ -78,6 +79,11 @@ const ApiVideoStatusJobIdRoute = ApiVideoStatusJobIdRouteImport.update({
   path: '/api/video-status/$jobId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVideoTokenJobIdRoute = ApiVideoTokenJobIdRouteImport.update({
+  id: '/api/video-token/$jobId',
+  path: '/api/video-token/$jobId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppProjectsIndexRoute = AppProjectsIndexRouteImport.update({
   id: '/projects/',
   path: '/projects/',
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AppIndexRoute
   '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
   '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
+  '/api/video-token/$jobId': typeof ApiVideoTokenJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects/': typeof AppProjectsIndexRoute
 }
@@ -115,6 +122,7 @@ export interface FileRoutesByTo {
   '/app': typeof AppIndexRoute
   '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
   '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
+  '/api/video-token/$jobId': typeof ApiVideoTokenJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects': typeof AppProjectsIndexRoute
 }
@@ -131,6 +139,7 @@ export interface FileRoutesById {
   '/app/': typeof AppIndexRoute
   '/api/video-content/$jobId': typeof ApiVideoContentJobIdRoute
   '/api/video-status/$jobId': typeof ApiVideoStatusJobIdRoute
+  '/api/video-token/$jobId': typeof ApiVideoTokenJobIdRoute
   '/app/projects/$projectId': typeof AppProjectsProjectIdRoute
   '/app/projects/': typeof AppProjectsIndexRoute
 }
@@ -148,6 +157,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/video-content/$jobId'
     | '/api/video-status/$jobId'
+    | '/api/video-token/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects/'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/video-content/$jobId'
     | '/api/video-status/$jobId'
+    | '/api/video-token/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects'
   id:
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/video-content/$jobId'
     | '/api/video-status/$jobId'
+    | '/api/video-token/$jobId'
     | '/app/projects/$projectId'
     | '/app/projects/'
   fileRoutesById: FileRoutesById
@@ -189,6 +201,7 @@ export interface RootRouteChildren {
   ApiGenerateVideoRoute: typeof ApiGenerateVideoRoute
   ApiVideoContentJobIdRoute: typeof ApiVideoContentJobIdRoute
   ApiVideoStatusJobIdRoute: typeof ApiVideoStatusJobIdRoute
+  ApiVideoTokenJobIdRoute: typeof ApiVideoTokenJobIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -270,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideoStatusJobIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/video-token/$jobId': {
+      id: '/api/video-token/$jobId'
+      path: '/api/video-token/$jobId'
+      fullPath: '/api/video-token/$jobId'
+      preLoaderRoute: typeof ApiVideoTokenJobIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/projects/': {
       id: '/app/projects/'
       path: '/projects'
@@ -315,6 +335,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateVideoRoute: ApiGenerateVideoRoute,
   ApiVideoContentJobIdRoute: ApiVideoContentJobIdRoute,
   ApiVideoStatusJobIdRoute: ApiVideoStatusJobIdRoute,
+  ApiVideoTokenJobIdRoute: ApiVideoTokenJobIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

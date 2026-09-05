@@ -9,8 +9,6 @@ const bodySchema = z.object({
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]),
   style: z.enum(["Cinematic", "Realistic", "Anime", "3D", "Animation"]),
   projectId: z.string().min(1),
-  /** Credit balance available to the caller. Moves server-side with Cloud auth. */
-  balance: z.number().int().nonnegative(),
 });
 
 function json(data: unknown, status = 200) {
@@ -24,10 +22,11 @@ export const Route = createFileRoute("/api/generate-video")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        // Auth boundary. The local auth adapter sends the signed-in user id;
-        // this becomes a verified session lookup once Cloud auth is enabled.
-        const userId = request.headers.get("x-videaai-user");
-        if (!userId) return json({ error: "You must be signed in to generate videos." }, 401);
+        // Identity comes from the verified Supabase access token only — never
+        // from a client-supplied user id.
+        const { verifyBearer } = await import("@/lib/auth.server");
+        const caller = await verifyBearer(request);
+        if (!caller) return json({ error: "You must be signed in to generate videos." }, 401);
 
         const parsed = bodySchema.safeParse(await request.json().catch(() => null));
         if (!parsed.success) {
@@ -36,17 +35,27 @@ export const Route = createFileRoute("/api/generate-video")({
         const input = parsed.data;
 
         const cost = creditCost(input.duration);
-        if (input.balance < cost) {
-          return json({ error: `Not enough credits. This render costs ${cost}.` }, 402);
+        const { getBalance, spendCredits, InsufficientCreditsError } = await import(
+          "@/lib/credits.server"
+        );
+        const { createJob, abandonJob } = await import("@/lib/video/jobs.server");
+        const { getVideoProvider } = await import("@/lib/video/provider.server");
+
+        // Fast pre-check for a friendly error; the authoritative, race-safe
+        // check happens inside spend_credits below.
+        try {
+          if ((await getBalance(caller.userId)) < cost) {
+            return json({ error: `Not enough credits. This render costs ${cost}.` }, 402);
+          }
+        } catch (error) {
+          console.error(error);
+          return json({ error: "Could not read your credit balance." }, 502);
         }
 
-        const { createJob } = await import("@/lib/video/jobs.server");
-        const { getVideoProvider } = await import("@/lib/video/provider.server");
+        let job: { id: string; sceneCount: number } | null = null;
         try {
-          // The row is created in a queued state; scene planning and the first
-          // provider call happen on the first status poll so this request stays fast.
-          const job = await createJob({
-            userRef: userId,
+          job = await createJob({
+            userRef: caller.userId,
             projectRef: input.projectId,
             prompt: input.prompt,
             duration: input.duration,
@@ -54,6 +63,8 @@ export const Route = createFileRoute("/api/generate-video")({
             style: input.style,
             credits: cost,
           });
+          // Debit atomically, keyed on the job id so retries cannot double-spend.
+          await spendCredits(caller.userId, cost, job.id);
           return json({
             generationId: job.id,
             projectId: input.projectId,
@@ -63,6 +74,8 @@ export const Route = createFileRoute("/api/generate-video")({
             scenePlan: SCENE_PLAN[input.duration],
           });
         } catch (error) {
+          if (job) await abandonJob(job.id, "Credits could not be reserved.").catch(() => {});
+          if (error instanceof InsufficientCreditsError) return json({ error: error.message }, 402);
           console.error(error);
           return json({ error: "Video generation failed to start." }, 502);
         }

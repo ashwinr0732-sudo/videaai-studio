@@ -9,6 +9,7 @@ import {
 } from "react";
 import { uid } from "./id";
 import { useAuth } from "./auth";
+import { useCreditLedger } from "./credits";
 import {
   creditCost,
   type AspectRatio,
@@ -29,6 +30,8 @@ import {
 interface DataShape {
   projects: Project[];
   generations: Generation[];
+  /** Legacy local credit rows. Kept for backwards compatibility only — the
+   * authoritative ledger now lives in the database. */
   credits: CreditEntry[];
 }
 
@@ -68,7 +71,10 @@ export interface JobUpdate {
 
 interface DataState extends DataShape {
   ready: boolean;
+  /** Authoritative balance from the server ledger. */
   balance: number;
+  /** Re-read the server ledger (after a spend, refund or admin adjustment). */
+  refreshCredits: () => void;
   createProject: (input: NewProjectInput) => { project: Project; generation: Generation };
   regenerate: (projectId: string) => Generation | undefined;
   addCredits: (amount: number, reason: CreditReason) => void;
@@ -92,6 +98,9 @@ function titleFromPrompt(prompt: string) {
 
 export function DataProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  // Credits are read from the server ledger; the browser never computes or
+  // writes an authoritative balance.
+  const ledger = useCreditLedger(user?.id ?? null);
   const [data, setData] = useState<DataShape>(EMPTY);
   const [ready, setReady] = useState(false);
 
@@ -101,19 +110,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
       setReady(false);
       return;
     }
-    const loaded = load(user.id);
-    if (loaded.credits.length === 0) {
-      loaded.credits = [
-        {
-          id: uid(),
-          user_id: user.id,
-          amount: 25,
-          reason: "signup_bonus",
-          created_at: new Date().toISOString(),
-        },
-      ];
-    }
-    setData(loaded);
+    setData(load(user.id));
     setReady(true);
   }, [user]);
 
@@ -122,10 +119,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(keyFor(user.id), JSON.stringify(data));
   }, [data, user, ready]);
 
-  const balance = useMemo(
-    () => data.credits.reduce((sum, entry) => sum + entry.amount, 0),
-    [data.credits],
-  );
+  const balance = ledger.balance;
+  const refreshCredits = ledger.refresh;
 
   const createProject = useCallback(
     (input: NewProjectInput) => {
@@ -161,19 +156,11 @@ export function DataProvider({ children }: { children: ReactNode }) {
         created_at: now,
         completed_at: null,
       };
+      // The debit itself happens server-side inside the generation endpoint.
       setData((prev) => ({
+        ...prev,
         projects: [project, ...prev.projects],
         generations: [generation, ...prev.generations],
-        credits: [
-          {
-            id: uid(),
-            user_id: userId,
-            amount: -cost,
-            reason: "generation",
-            created_at: now,
-          },
-          ...prev.credits,
-        ],
       }));
       return { project, generation };
     },
@@ -206,10 +193,6 @@ export function DataProvider({ children }: { children: ReactNode }) {
             : p,
         ),
         generations: [generation, ...prev.generations],
-        credits: [
-          { id: uid(), user_id: userId, amount: -cost, reason: "generation", created_at: now },
-          ...prev.credits,
-        ],
       }));
       return generation;
     },
@@ -248,20 +231,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     setData((prev) => {
       const target = prev.generations.find((g) => g.id === generationId);
       if (!target || target.status === projectStatus) return prev;
-      const refund =
-        update.status === "failed" && target.status !== "failed"
-          ? [
-              {
-                id: uid(),
-                user_id: target.user_id,
-                amount: target.credits_spent,
-                reason: "refund" as CreditReason,
-                created_at: now,
-              },
-            ]
-          : [];
+      // Refunds are issued server-side; the client only refreshes its view.
       return {
-        credits: [...refund, ...prev.credits],
+        ...prev,
         generations: prev.generations.map((g) =>
           g.id === generationId
             ? {
@@ -289,23 +261,15 @@ export function DataProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  /**
+   * Credits can only be granted server-side (signup bonus, admin adjustment,
+   * refund). This just re-reads the authoritative balance.
+   */
   const addCredits = useCallback(
-    (amount: number, reason: CreditReason) => {
-      setData((prev) => ({
-        ...prev,
-        credits: [
-          {
-            id: uid(),
-            user_id: user?.id ?? "anonymous",
-            amount,
-            reason,
-            created_at: new Date().toISOString(),
-          },
-          ...prev.credits,
-        ],
-      }));
+    (_amount: number, _reason: CreditReason) => {
+      refreshCredits();
     },
-    [user],
+    [refreshCredits],
   );
 
   const getProject = useCallback(
@@ -326,8 +290,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       ...data,
+      credits: ledger.credits,
       ready,
       balance,
+      refreshCredits,
       createProject,
       regenerate,
       addCredits,
@@ -339,8 +305,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }),
     [
       data,
+      ledger.credits,
       ready,
       balance,
+      refreshCredits,
       createProject,
       regenerate,
       addCredits,

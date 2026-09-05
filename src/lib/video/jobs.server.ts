@@ -142,6 +142,16 @@ export function publicState(job: JobRow): PublicJobState {
 }
 
 async function failJob(job: JobRow, message: string, sceneIndex: number | null = null) {
+  // Refunds are issued server-side and are idempotent per job id, so the
+  // browser can never grant itself credits by replaying a failure.
+  if (job.credits_spent > 0) {
+    try {
+      const { refundCredits } = await import("@/lib/credits.server");
+      await refundCredits(job.user_ref, job.credits_spent, job.id);
+    } catch (error) {
+      console.error("[video job] refund failed", error);
+    }
+  }
   await patch(job.id, {
     status: "failed",
     phase: "failed",
@@ -403,9 +413,26 @@ export async function advanceJob(jobId: string, userRef: string): Promise<Public
   }
 }
 
+/** Mark a job dead before any work starts (e.g. credits could not be reserved). */
+export async function abandonJob(jobId: string, message: string) {
+  await patch(jobId, {
+    status: "failed",
+    phase: "failed",
+    error_message: message,
+    credits_spent: 0,
+    progress: 0,
+  });
+}
+
 /** Signed, time-limited URL for the stored final MP4. */
 export async function finalVideoBytes(jobId: string, userRef: string) {
   const job = await loadJob(jobId);
   if (!job || job.user_ref !== userRef || !job.final_path) return null;
   return { bytes: await download(job.final_path), job };
+}
+
+/** Ownership check used before minting a playback token. */
+export async function jobBelongsTo(jobId: string, userRef: string) {
+  const job = await loadJob(jobId);
+  return Boolean(job && job.user_ref === userRef && job.final_path);
 }
