@@ -26,15 +26,19 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       await signIn(email, password);
       navigate({ to: "/app", replace: true });
-    } catch {
-      toast.error("Could not sign in");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not sign in.";
+      setError(message);
+      toast.error("Could not sign in", { description: message });
     } finally {
       setBusy(false);
     }

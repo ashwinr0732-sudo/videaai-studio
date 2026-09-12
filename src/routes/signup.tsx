@@ -27,16 +27,28 @@ function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [confirmSent, setConfirmSent] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
-      await signUp(email, password, fullName);
+      const { needsConfirmation } = await signUp(email, password, fullName);
+      if (needsConfirmation) {
+        setConfirmSent(true);
+        toast.success("Check your email", {
+          description: "Click the confirmation link to activate your account.",
+        });
+        return;
+      }
       toast.success("Account created", { description: "25 starter credits added." });
       navigate({ to: "/app", replace: true });
-    } catch {
-      toast.error("Could not create account");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not create account.";
+      setError(message);
+      toast.error("Could not create account", { description: message });
     } finally {
       setBusy(false);
     }
