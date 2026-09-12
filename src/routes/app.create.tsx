@@ -100,13 +100,12 @@ function CreatePage() {
       style,
     });
     try {
-      const result = await startGeneration(user.id, {
+      const result = await startGeneration({
         prompt: prompt.trim(),
         duration,
         aspectRatio: ratio,
         style,
         projectId: project.id,
-        balance,
       });
       linkGeneration(generation.id, result.generationId, result.provider);
       toast.success("Generation started", { description: "Tracking progress on the project page." });

@@ -187,6 +187,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         completed_at: null,
       };
       setData((prev) => ({
+        ...prev,
         projects: prev.projects.map((p) =>
           p.id === projectId
             ? { ...p, status: "queued", video_url: null, actual_duration_seconds: null, updated_at: now }
