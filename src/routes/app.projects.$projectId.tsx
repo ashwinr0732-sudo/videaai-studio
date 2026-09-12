@@ -204,7 +204,9 @@ function ProjectDetailPage() {
                   controls
                   className="h-full w-full object-contain"
                   src={
-                    project.video_url && user ? videoSrc(project.video_url, user.id) : undefined
+                    project.video_url && mediaToken
+                      ? videoSrc(project.video_url, mediaToken)
+                      : undefined
                   }
                 />
               ) : (
@@ -240,9 +242,9 @@ function ProjectDetailPage() {
               <StatusBadge status={project.status} />
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={!ready} asChild={!!ready}>
-                  {ready && user ? (
+                  {ready && mediaToken ? (
                     <a
-                      href={videoSrc(project.video_url!, user.id, true)}
+                      href={videoSrc(project.video_url!, mediaToken, true)}
                       download={`${project.title}.mp4`}
                     >
                       <Download className="h-4 w-4" /> Download
