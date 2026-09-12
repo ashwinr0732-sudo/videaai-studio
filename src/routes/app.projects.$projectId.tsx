@@ -59,7 +59,7 @@ function ProjectDetailPage() {
     async function poll() {
       if (cancelled || !user || !jobId) return;
       try {
-        const state = await fetchJobStatus(user.id, jobId);
+        const state = await fetchJobStatus(jobId);
         if (cancelled) return;
         setJob(state);
         setProgress(state.status === "completed" ? 100 : state.progress);
@@ -139,13 +139,12 @@ function ProjectDetailPage() {
       return;
     }
     try {
-      const result = await startGeneration(user.id, {
+      const result = await startGeneration({
         prompt: project!.prompt,
         duration: project!.duration_seconds,
         aspectRatio: project!.aspect_ratio,
         style: project!.style,
         projectId,
-        balance,
       });
       linkGeneration(generation.id, result.generationId, result.provider);
       startedAt.current = Date.now();
