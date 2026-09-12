@@ -11,6 +11,7 @@ import { useData } from "@/lib/data-store";
 import { creditCost } from "@/lib/types";
 import {
   fetchJobStatus,
+  fetchMediaToken,
   formatDuration,
   phaseLabel,
   startGeneration,
@@ -49,7 +50,27 @@ function ProjectDetailPage() {
   const [phase, setPhase] = useState("Preparing");
   const [job, setJob] = useState<JobStatusResult | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [mediaToken, setMediaToken] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
+
+  // Playback/download use a short-lived server-signed token, never a user id.
+  useEffect(() => {
+    const token = job?.mediaToken;
+    if (token) {
+      setMediaToken(token);
+      return;
+    }
+    if (!user || !jobId || mediaToken) return;
+    let cancelled = false;
+    void fetchMediaToken(jobId)
+      .then((t) => {
+        if (!cancelled) setMediaToken(t);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.mediaToken, user, jobId, mediaToken]);
 
   useEffect(() => {
     if (!user || !jobId || !isRunning) return;
