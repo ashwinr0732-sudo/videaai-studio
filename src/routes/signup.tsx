@@ -100,6 +100,20 @@ function SignupPage() {
               className="bg-surface-2"
             />
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="border-destructive/40 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
+            >
+              {error}
+            </p>
+          )}
+          {confirmSent && (
+            <p className="border-primary/40 bg-primary/10 text-primary rounded-lg border px-3 py-2 text-sm">
+              Almost there — we sent a confirmation link to {email}. Click it to activate your
+              account, then log in.
+            </p>
+          )}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create account
           </Button>
