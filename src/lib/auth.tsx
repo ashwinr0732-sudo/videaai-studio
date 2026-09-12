@@ -116,20 +116,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(describeAuthError(error.message));
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
-    const redirect = typeof window !== "undefined" ? `${window.location.origin}/app` : "";
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: redirect
-        ? { data: { full_name: fullName }, emailRedirectTo: redirect }
-        : { data: { full_name: fullName } },
-    });
-    if (error) throw new Error(error.message);
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string, fullName: string): Promise<SignUpResult> => {
+      const redirect = typeof window !== "undefined" ? `${window.location.origin}/app` : "";
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: redirect
+          ? { data: { full_name: fullName }, emailRedirectTo: redirect }
+          : { data: { full_name: fullName } },
+      });
+      if (error) throw new Error(describeAuthError(error.message));
+      // Supabase returns an identity-less user when the email already exists.
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        throw new Error("That email is already registered. Try logging in instead.");
+      }
+      return { needsConfirmation: !data.session };
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();
