@@ -27,6 +27,40 @@ function toUser(u: SupabaseUser): User {
   };
 }
 
+/**
+ * Turns raw auth errors into messages a person can act on, instead of one
+ * generic "could not sign in".
+ */
+export function describeAuthError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("already registered") || m.includes("user already exists"))
+    return "That email is already registered. Try logging in instead.";
+  if (m.includes("weak") || m.includes("pwned"))
+    return "That password has appeared in known data breaches. Please choose a stronger, unique password.";
+  if (m.includes("password should be at least"))
+    return "Password is too short. Use at least 6 characters.";
+  if (m.includes("invalid login credentials"))
+    return "Incorrect email or password.";
+  if (m.includes("email not confirmed"))
+    return "Please confirm your email address first — check your inbox for the confirmation link.";
+  if (m.includes("unable to validate email") || m.includes("invalid email"))
+    return "That email address doesn't look valid.";
+  if (m.includes("email logins are disabled") || m.includes("signups not allowed"))
+    return "Email sign-in is currently disabled for this app.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "Too many attempts. Please wait a minute and try again.";
+  if (m.includes("database error"))
+    return "Your account could not be set up (profile creation failed). Please try again or contact support.";
+  if (m.includes("missing supabase") || m.includes("failed to fetch"))
+    return "Can't reach the authentication service right now. Please try again in a moment.";
+  return message;
+}
+
+export interface SignUpResult {
+  /** True when the account exists but needs an emailed confirmation link. */
+  needsConfirmation: boolean;
+}
+
 interface AuthState {
   user: User | null;
   session: Session | null;
@@ -34,7 +68,7 @@ interface AuthState {
   /** True only when the database says this account holds the `admin` role. */
   isAdmin: boolean;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, fullName: string) => Promise<void>;
+  signUp: (email: string, password: string, fullName: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
 }
 
@@ -82,20 +116,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(describeAuthError(error.message));
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
-    const redirect = typeof window !== "undefined" ? `${window.location.origin}/app` : "";
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: redirect
-        ? { data: { full_name: fullName }, emailRedirectTo: redirect }
-        : { data: { full_name: fullName } },
-    });
-    if (error) throw new Error(error.message);
-  }, []);
+  const signUp = useCallback(
+    async (email: string, password: string, fullName: string): Promise<SignUpResult> => {
+      const redirect = typeof window !== "undefined" ? `${window.location.origin}/app` : "";
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: redirect
+          ? { data: { full_name: fullName }, emailRedirectTo: redirect }
+          : { data: { full_name: fullName } },
+      });
+      if (error) throw new Error(describeAuthError(error.message));
+      // Supabase returns an identity-less user when the email already exists.
+      if (data.user && (data.user.identities?.length ?? 0) === 0) {
+        throw new Error("That email is already registered. Try logging in instead.");
+      }
+      return { needsConfirmation: !data.session };
+    },
+    [],
+  );
 
   const signOut = useCallback(async () => {
     await supabase.auth.signOut();

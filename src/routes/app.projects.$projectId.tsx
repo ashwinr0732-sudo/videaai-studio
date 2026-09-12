@@ -11,6 +11,7 @@ import { useData } from "@/lib/data-store";
 import { creditCost } from "@/lib/types";
 import {
   fetchJobStatus,
+  fetchMediaToken,
   formatDuration,
   phaseLabel,
   startGeneration,
@@ -49,7 +50,27 @@ function ProjectDetailPage() {
   const [phase, setPhase] = useState("Preparing");
   const [job, setJob] = useState<JobStatusResult | null>(null);
   const [restarting, setRestarting] = useState(false);
+  const [mediaToken, setMediaToken] = useState<string | null>(null);
   const startedAt = useRef<number | null>(null);
+
+  // Playback/download use a short-lived server-signed token, never a user id.
+  useEffect(() => {
+    const token = job?.mediaToken;
+    if (token) {
+      setMediaToken(token);
+      return;
+    }
+    if (!user || !jobId || mediaToken) return;
+    let cancelled = false;
+    void fetchMediaToken(jobId)
+      .then((t) => {
+        if (!cancelled) setMediaToken(t);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [job?.mediaToken, user, jobId, mediaToken]);
 
   useEffect(() => {
     if (!user || !jobId || !isRunning) return;
@@ -59,7 +80,7 @@ function ProjectDetailPage() {
     async function poll() {
       if (cancelled || !user || !jobId) return;
       try {
-        const state = await fetchJobStatus(user.id, jobId);
+        const state = await fetchJobStatus(jobId);
         if (cancelled) return;
         setJob(state);
         setProgress(state.status === "completed" ? 100 : state.progress);
@@ -139,13 +160,12 @@ function ProjectDetailPage() {
       return;
     }
     try {
-      const result = await startGeneration(user.id, {
+      const result = await startGeneration({
         prompt: project!.prompt,
         duration: project!.duration_seconds,
         aspectRatio: project!.aspect_ratio,
         style: project!.style,
         projectId,
-        balance,
       });
       linkGeneration(generation.id, result.generationId, result.provider);
       startedAt.current = Date.now();
@@ -184,7 +204,9 @@ function ProjectDetailPage() {
                   controls
                   className="h-full w-full object-contain"
                   src={
-                    project.video_url && user ? videoSrc(project.video_url, user.id) : undefined
+                    project.video_url && mediaToken
+                      ? videoSrc(project.video_url, mediaToken)
+                      : undefined
                   }
                 />
               ) : (
@@ -220,9 +242,9 @@ function ProjectDetailPage() {
               <StatusBadge status={project.status} />
               <div className="flex gap-2">
                 <Button variant="secondary" disabled={!ready} asChild={!!ready}>
-                  {ready && user ? (
+                  {ready && mediaToken ? (
                     <a
-                      href={videoSrc(project.video_url!, user.id, true)}
+                      href={videoSrc(project.video_url!, mediaToken, true)}
                       download={`${project.title}.mp4`}
                     >
                       <Download className="h-4 w-4" /> Download

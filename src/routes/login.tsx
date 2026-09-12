@@ -26,15 +26,19 @@ function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       await signIn(email, password);
       navigate({ to: "/app", replace: true });
-    } catch {
-      toast.error("Could not sign in");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not sign in.";
+      setError(message);
+      toast.error("Could not sign in", { description: message });
     } finally {
       setBusy(false);
     }
@@ -73,6 +77,14 @@ function LoginPage() {
               className="bg-surface-2"
             />
           </div>
+          {error && (
+            <p
+              role="alert"
+              className="border-destructive/40 bg-destructive/10 text-destructive rounded-lg border px-3 py-2 text-sm"
+            >
+              {error}
+            </p>
+          )}
           <Button type="submit" className="w-full" disabled={busy}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} Log in
           </Button>

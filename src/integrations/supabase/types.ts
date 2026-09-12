@@ -10,10 +10,37 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string
+          details: Json
+          id: string
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string
+          details?: Json
+          id?: string
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
       credit_transactions: {
         Row: {
           admin_id: string | null
@@ -181,6 +208,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_adjust_credits: {
+        Args: {
+          _admin_id: string
+          _amount: number
+          _note: string
+          _user_id: string
+        }
+        Returns: number
+      }
       credit_balance: { Args: { _user_id: string }; Returns: number }
       has_role: {
         Args: {
