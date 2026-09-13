@@ -1,29 +1,24 @@
 /**
  * Server-side video provider abstraction.
  *
- * VideaAI uses fal.ai's Veo 3.1 Lite API for video generation.
- * The API key stays server-side in FAL_KEY.
+ * VideaAI currently uses Magic Hour's Text-to-Video API.
+ * The API key stays server-side in MAGIC_HOUR_API_KEY.
+ *
+ * Provider swap rule:
+ * The rest of VideaAI talks only to VideoProvider.
+ * To replace Magic Hour later, replace this provider implementation.
  */
 
-import { fal } from "@fal-ai/client";
 import type { AspectRatio } from "@/lib/types";
 
 export type JobStatus = "queued" | "processing" | "completed" | "failed";
 
-/** Clip lengths supported by Veo 3.1 Lite. */
 export type ClipSeconds = 4 | 6 | 8;
 
 export interface ClipRequest {
   prompt: string;
   seconds: ClipSeconds;
   aspectRatio: AspectRatio;
-  /**
-   * Optional continuity input.
-   *
-   * The current VideaAI orchestrator does not send this yet, so text-to-video
-   * is used for the MVP. Image-to-video can be added later without changing
-   * the provider interface.
-   */
   inputReference?: string;
 }
 
@@ -39,9 +34,11 @@ export interface VideoProvider {
   readonly model: string;
   readonly supportedClipSeconds: readonly ClipSeconds[];
   readonly supportsImageReference: boolean;
+
   createClip(input: ClipRequest): Promise<ProviderJob>;
   getClip(clipJobId: string): Promise<ProviderJob>;
   downloadClip(clipJobId: string): Promise<Uint8Array>;
+
   sizeFor(aspectRatio: AspectRatio): {
     size: string;
     width: number;
@@ -59,24 +56,27 @@ export class VideoProviderError extends Error {
   }
 }
 
-const FAL_MODEL = "fal-ai/veo3.1/lite";
+const MAGIC_HOUR_BASE_URL = "https://api.magichour.ai/v1";
 
-function configureFal() {
-  const key = process.env["FAL_KEY"];
+const MAGIC_HOUR_MODEL = "default";
+
+function getApiKey(): string {
+  const key = process.env["MAGIC_HOUR_API_KEY"];
 
   if (!key) {
     throw new VideoProviderError(
-      "Video generation is not configured. Add FAL_KEY to the server environment.",
+      "Video generation is not configured. Add MAGIC_HOUR_API_KEY to the server environment.",
       500,
     );
   }
 
-  // Explicitly configure the server-side client.
-  fal.config({ credentials: key });
+  return key;
 }
 
 function providerErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    return error.message;
+  }
 
   if (typeof error === "object" && error !== null) {
     const value = error as {
@@ -93,60 +93,174 @@ function providerErrorMessage(error: unknown): string {
   return "The video provider returned an unexpected error.";
 }
 
-const falVeoProvider: VideoProvider = {
-  name: "fal-veo",
-  model: FAL_MODEL,
+async function magicHourRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${MAGIC_HOUR_BASE_URL}${path}`, {
+    ...init,
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${getApiKey()}`,
+      "content-type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  const text = await response.text();
+
+  let data: unknown = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = null;
+  }
+
+  if (!response.ok) {
+    const message =
+      typeof data === "object" &&
+      data !== null &&
+      "error" in data &&
+      typeof (data as { error?: unknown }).error === "object"
+        ? JSON.stringify((data as { error: unknown }).error)
+        : typeof data === "object" &&
+            data !== null &&
+            "message" in data &&
+            typeof (data as { message?: unknown }).message === "string"
+          ? String((data as { message: string }).message)
+          : text || `Magic Hour request failed (${response.status}).`;
+
+    throw new VideoProviderError(message, response.status);
+  }
+
+  return data as T;
+}
+
+type MagicHourCreateResponse = {
+  id?: string;
+  credits_charged?: number;
+  estimated_frame_cost?: number;
+};
+
+type MagicHourProjectResponse = {
+  id?: string;
+  status?: string;
+  progress?: number;
+  error?: {
+    code?: string;
+    message?: string;
+  } | null;
+  downloads?: Array<{
+    url?: string;
+    expires_at?: string;
+  }>;
+  download?: {
+    url?: string;
+    expires_at?: string;
+  };
+};
+
+function mapMagicHourStatus(
+  status: string | undefined,
+): JobStatus {
+  const normalized = String(status ?? "").toLowerCase();
+
+  if (
+    normalized === "complete" ||
+    normalized === "completed" ||
+    normalized === "success"
+  ) {
+    return "completed";
+  }
+
+  if (
+    normalized === "error" ||
+    normalized === "failed" ||
+    normalized === "cancelled" ||
+    normalized === "canceled"
+  ) {
+    return "failed";
+  }
+
+  if (
+    normalized === "processing" ||
+    normalized === "running" ||
+    normalized === "started"
+  ) {
+    return "processing";
+  }
+
+  return "queued";
+}
+
+const magicHourProvider: VideoProvider = {
+  name: "magic-hour",
+  model: MAGIC_HOUR_MODEL,
 
   supportedClipSeconds: [4, 6, 8],
 
-  // Image-to-video support can be enabled later. The current orchestrator
-  // generates scenes from text prompts.
   supportsImageReference: false,
 
   sizeFor(aspectRatio) {
     if (aspectRatio === "9:16") {
       return {
-        size: "720x1280",
-        width: 720,
-        height: 1280,
+        size: "480x854",
+        width: 480,
+        height: 854,
       };
     }
 
-    // Veo 3.1 Lite supports 16:9 and 9:16.
-    // VideaAI's existing 1:1 option is safely mapped to landscape.
     return {
-      size: "1280x720",
-      width: 1280,
-      height: 720,
+      size: "854x480",
+      width: 854,
+      height: 480,
     };
   },
 
   async createClip(input) {
     try {
-      configureFal();
+      const orientation =
+        input.aspectRatio === "9:16"
+          ? "portrait"
+          : "landscape";
 
-      const providerAspectRatio: "16:9" | "9:16" =
-        input.aspectRatio === "9:16" ? "9:16" : "16:9";
+      const result =
+        await magicHourRequest<MagicHourCreateResponse>(
+          "/text-to-video",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: "VideaAI Scene",
+              end_seconds: input.seconds,
+              orientation,
+              model: MAGIC_HOUR_MODEL,
+              resolution: "480p",
+              style: {
+                prompt: input.prompt.slice(0, 2000),
+              },
+            }),
+          },
+        );
 
-      const { request_id } = await fal.queue.submit(FAL_MODEL, {
-        input: {
-          prompt: input.prompt,
-          aspect_ratio: providerAspectRatio,
-          duration: `${input.seconds}s`,
-          resolution: "720p",
-          generate_audio: true,
-          auto_fix: true,
-          safety_tolerance: "4",
-        },
-      });
+      if (!result.id) {
+        throw new VideoProviderError(
+          "Magic Hour accepted the request but did not return a project ID.",
+          502,
+        );
+      }
 
       return {
-        id: request_id,
+        id: result.id,
         status: "queued",
         progress: 0,
         error: null,
       };
     } catch (error) {
+      if (error instanceof VideoProviderError) {
+        throw error;
+      }
+
       throw new VideoProviderError(
         providerErrorMessage(error),
         502,
@@ -156,17 +270,14 @@ const falVeoProvider: VideoProvider = {
 
   async getClip(clipJobId) {
     try {
-      configureFal();
+      const result =
+        await magicHourRequest<MagicHourProjectResponse>(
+          `/video-projects/${encodeURIComponent(clipJobId)}`,
+        );
 
-      const status = await fal.queue.status(FAL_MODEL, {
-        requestId: clipJobId,
-      });
+      const status = mapMagicHourStatus(result.status);
 
-      const rawStatus = String(
-        (status as { status?: unknown }).status ?? "",
-      );
-
-      if (rawStatus === "COMPLETED") {
+      if (status === "completed") {
         return {
           id: clipJobId,
           status: "completed",
@@ -175,61 +286,54 @@ const falVeoProvider: VideoProvider = {
         };
       }
 
-      if (rawStatus === "IN_QUEUE") {
+      if (status === "failed") {
         return {
           id: clipJobId,
-          status: "queued",
-          progress: 5,
-          error: null,
+          status: "failed",
+          progress: 0,
+          error:
+            result.error?.message ??
+            `Magic Hour returned status "${result.status ?? "unknown"}".`,
         };
       }
 
-      if (rawStatus === "IN_PROGRESS") {
-        return {
-          id: clipJobId,
-          status: "processing",
-          progress: 50,
-          error: null,
-        };
-      }
+      const progress =
+        typeof result.progress === "number"
+          ? Math.max(0, Math.min(99, result.progress))
+          : status === "processing"
+            ? 50
+            : 5;
 
       return {
         id: clipJobId,
-        status: "failed",
-        progress: 0,
-        error: `fal.ai returned status "${rawStatus || "unknown"}".`,
+        status,
+        progress,
+        error: null,
       };
     } catch (error) {
-      const message = providerErrorMessage(error);
-
       return {
         id: clipJobId,
         status: "failed",
         progress: 0,
-        error: message,
+        error: providerErrorMessage(error),
       };
     }
   },
 
   async downloadClip(clipJobId) {
     try {
-      configureFal();
+      const result =
+        await magicHourRequest<MagicHourProjectResponse>(
+          `/video-projects/${encodeURIComponent(clipJobId)}`,
+        );
 
-      const result = await fal.queue.result(FAL_MODEL, {
-        requestId: clipJobId,
-      });
-
-      const data = result.data as {
-        video?: {
-          url?: string;
-        };
-      };
-
-      const videoUrl = data.video?.url;
+      const videoUrl =
+        result.downloads?.[0]?.url ??
+        result.download?.url;
 
       if (!videoUrl) {
         throw new VideoProviderError(
-          "fal.ai completed the job but did not return a video URL.",
+          "Magic Hour completed the project but did not return a video download URL.",
           502,
         );
       }
@@ -243,7 +347,9 @@ const falVeoProvider: VideoProvider = {
         );
       }
 
-      return new Uint8Array(await response.arrayBuffer());
+      return new Uint8Array(
+        await response.arrayBuffer(),
+      );
     } catch (error) {
       if (error instanceof VideoProviderError) {
         throw error;
@@ -257,6 +363,15 @@ const falVeoProvider: VideoProvider = {
   },
 };
 
+/**
+ * SIM SLOT:
+ *
+ * Everything outside this provider calls getVideoProvider().
+ *
+ * Later, replacing Magic Hour with Google/Runway/etc.
+ * means replacing this provider implementation and
+ * returning the new provider here.
+ */
 export function getVideoProvider(): VideoProvider {
-  return falVeoProvider;
+  return magicHourProvider;
 }
