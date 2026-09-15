@@ -1,87 +1,113 @@
 import base64
 import os
+import subprocess
 import tempfile
+import time
 
-import imageio.v3 as iio
 import runpod
-import torch
-from diffusers import DiffusionPipeline
 
 
-MODEL_ID = "Wan-AI/Wan2.2-TI2V-5B-Diffusers"
+WAN_REPO = "/wan"
+MODEL_DIR = "/runpod-volume/models/Wan2.2-TI2V-5B"
 
-pipe = None
 
+def generate_video(prompt, aspect_ratio="9:16", seed=None):
+    if aspect_ratio == "16:9":
+        size = "1280*704"
+    elif aspect_ratio == "1:1":
+        size = "1024*704"
+    else:
+        size = "704*1280"
 
-def load_model():
-    global pipe
+    # WAN TI2V-5B native generation is 121 frames at 24 FPS.
+    frame_num = 121
 
-    if pipe is None:
-        pipe = DiffusionPipeline.from_pretrained(
-            MODEL_ID,
-            torch_dtype=torch.bfloat16,
-            device_map="cuda",
-        )
+    output_path = f"/tmp/videaai_{int(time.time())}.mp4"
 
-    return pipe
+    command = [
+        "python3.10",
+        f"{WAN_REPO}/generate.py",
+        "--task",
+        "ti2v-5B",
+        "--size",
+        size,
+        "--ckpt_dir",
+        MODEL_DIR,
+        "--prompt",
+        prompt,
+        "--frame_num",
+        str(frame_num),
+        "--sample_solver",
+        "unipc",
+        "--sample_steps",
+        "30",
+        "--offload_model",
+        "True",
+        "--t5_cpu",
+        "--convert_model_dtype",
+        "--save_file",
+        output_path,
+    ]
+
+    if seed is not None:
+        command.extend(["--base_seed", str(seed)])
+
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    env["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+    env["TOKENIZERS_PARALLELISM"] = "false"
+
+    subprocess.run(
+        command,
+        cwd=WAN_REPO,
+        env=env,
+        check=True,
+    )
+
+    if not os.path.exists(output_path):
+        raise RuntimeError("WAN generation completed but no MP4 was created.")
+
+    try:
+        with open(output_path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+    finally:
+        os.remove(output_path)
 
 
 def handler(job):
     job_input = job.get("input", {})
 
-    prompt = job_input.get("prompt", "").strip()
+    prompt = str(job_input.get("prompt", "")).strip()
     aspect_ratio = job_input.get("aspect_ratio", "9:16")
-    duration = max(8, int(job_input.get("duration", 8)))
+    seed = job_input.get("seed")
 
     if not prompt:
-        raise ValueError("Prompt is required.")
+        return {"error": "Prompt is required."}
 
-    model = load_model()
-
-    if aspect_ratio == "16:9":
-        width, height = 1280, 704
-    else:
-        width, height = 704, 1280
-
-    fps = 24
-    frames = duration * fps + 1
-
-    result = model(
-        prompt=prompt,
-        width=width,
-        height=height,
-        num_frames=frames,
-        num_inference_steps=30,
-    )
-
-    video = result.frames[0]
-
-    with tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as f:
-        output_path = f.name
+    if aspect_ratio not in ("9:16", "16:9", "1:1"):
+        return {"error": "aspect_ratio must be 9:16, 16:9, or 1:1"}
 
     try:
-        iio.imwrite(
-            output_path,
-            video,
-            fps=fps,
-            codec="libx264",
+        video_base64 = generate_video(
+            prompt=prompt,
+            aspect_ratio=aspect_ratio,
+            seed=seed,
         )
-
-        with open(output_path, "rb") as f:
-            video_bytes = f.read()
 
         return {
             "status": "completed",
-            "duration": duration,
-            "width": width,
-            "height": height,
-            "fps": fps,
-            "video_base64": base64.b64encode(video_bytes).decode("utf-8"),
+            "video_base64": video_base64,
+            "fps": 24,
+            "frames": 121,
+            "aspect_ratio": aspect_ratio,
+            "model": "Wan2.2-TI2V-5B",
         }
 
-    finally:
-        if os.path.exists(output_path):
-            os.remove(output_path)
+    except Exception as e:
+        return {
+            "status": "failed",
+            "error": str(e),
+        }
 
 
 runpod.serverless.start({"handler": handler})
