@@ -58,7 +58,7 @@ function NavLinks({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
 }
 
 function SidebarBody({ onNavigate }: { onNavigate?: (() => void) | undefined }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   return (
     <div className="flex h-full flex-col gap-6 p-4">
