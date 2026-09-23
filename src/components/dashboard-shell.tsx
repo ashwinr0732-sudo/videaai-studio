@@ -1,6 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
-import { CreditCard, LayoutGrid, LogOut, Menu, Settings, Sparkles, Zap } from "lucide-react";
+import {
+  CreditCard,
+  LayoutGrid,
+  LogOut,
+  Menu,
+  Settings,
+  ShieldCheck,
+  Sparkles,
+  Zap,
+} from "lucide-react";
 import { Logo } from "@/components/brand";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -69,6 +78,15 @@ function SidebarBody({ onNavigate }: { onNavigate?: (() => void) | undefined }) 
         </Button>
       </Link>
       <NavLinks onNavigate={onNavigate} />
+      {isAdmin && (
+        <Link
+          to="/admin"
+          onClick={onNavigate}
+          className="text-muted-foreground hover:bg-sidebar-accent/60 hover:text-foreground flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors"
+        >
+          <ShieldCheck className="h-4 w-4" /> Admin
+        </Link>
+      )}
       <div className="mt-auto space-y-3">
         <CreditPill />
         <div className="flex items-center gap-3 px-1">
