@@ -68,7 +68,7 @@ export interface AdminOverview {
   recentActivity: {
     id: string;
     action: string;
-    details: Record<string, unknown>;
+    details: { amount?: number; reason?: string };
     created_at: string;
     admin_email: string | null;
   }[];
@@ -162,7 +162,7 @@ export const adminOverview = createServerFn({ method: "GET" })
       recentActivity: ((audit.data ?? []) as any[]).map((a) => ({
         id: a.id,
         action: a.action,
-        details: a.details ?? {},
+        details: (a.details ?? {}) as { amount?: number; reason?: string },
         created_at: a.created_at,
         admin_email: auditEmails.get(a.admin_id) ?? null,
       })),
