@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,12 +11,12 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/login")({
   head: () => ({
     meta: [
-      { title: "Log in — VideaAI" },
+      { title: "Log in â€” VideaAI" },
       {
         name: "description",
         content: "Log in to your VideaAI workspace to create AI videos.",
       },
-      { property: "og:title", content: "Log in — VideaAI" },
+      { property: "og:title", content: "Log in â€” VideaAI" },
       { property: "og:description", content: "Access your VideaAI workspace." },
     ],
   }),
@@ -29,11 +29,18 @@ function LoginPage() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+
+    if (!termsAccepted) {
+      setError("You must agree to the Terms & Conditions before logging in.");
+      return;
+    }
+
     setBusy(true);
     setError(null);
 
@@ -45,6 +52,7 @@ function LoginPage() {
         err instanceof Error ? err.message : "Could not sign in.";
 
       setError(message);
+
       toast.error("Could not sign in", {
         description: message,
       });
@@ -100,10 +108,30 @@ function LoginPage() {
               minLength={6}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
+              placeholder="At least 6 character"
               className="bg-surface-2"
             />
           </div>
+
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="relative mt-1 h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-md border border-border bg-surface-2 transition-all checked:border-primary checked:bg-primary checked:after:absolute checked:after:left-1/2 checked:after:top-1/2 checked:after:block checked:after:h-2 checked:after:w-1 checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:rotate-45 checked:after:border-b-2 checked:after:border-r-2 checked:after:border-[#07191a]"
+            />
+
+            <span className="text-muted-foreground leading-5">
+              I have read and agree to the{" "}
+              <Link
+                to="/terms"
+                className="text-primary hover:underline"
+              >
+                Terms & Conditions
+              </Link>
+              .
+            </span>
+          </label>
 
           {error && (
             <p
@@ -114,7 +142,11 @@ function LoginPage() {
             </p>
           )}
 
-          <Button type="submit" className="w-full" disabled={busy}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={busy || !termsAccepted}
+          >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             Log in
           </Button>
@@ -129,7 +161,17 @@ function LoginPage() {
             Create an account
           </Link>
         </p>
+
+        <p className="text-muted-foreground mt-4 text-center text-xs">
+          By using VideaAI, you acknowledge that AI-generated content may be
+          unpredictable and that you are responsible for your use of the
+          platform and generated content.
+        </p>
       </div>
     </div>
   );
 }
+
+
+
+

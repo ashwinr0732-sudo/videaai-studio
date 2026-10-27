@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,9 +11,9 @@ import { useAuth } from "@/lib/auth";
 export const Route = createFileRoute("/signup")({
   head: () => ({
     meta: [
-      { title: "Sign up — VideaAI" },
+      { title: "Sign up â€” VideaAI" },
       { name: "description", content: "Create a free VideaAI account and get 25 starter credits." },
-      { property: "og:title", content: "Sign up — VideaAI" },
+      { property: "og:title", content: "Sign up â€” VideaAI" },
       { property: "og:description", content: "Start generating AI videos with 25 free credits." },
     ],
   }),
@@ -29,6 +29,7 @@ function SignupPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmSent, setConfirmSent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -100,6 +101,21 @@ function SignupPage() {
               className="bg-surface-2"
             />
           </div>
+          <label className="flex items-start gap-3 text-sm">
+            <input
+              type="checkbox"
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+              className="relative mt-1 h-4 w-4 shrink-0 cursor-pointer appearance-none rounded-md border border-border bg-surface-2 transition-all checked:border-primary checked:bg-primary checked:after:absolute checked:after:left-1/2 checked:after:top-1/2 checked:after:block checked:after:h-2 checked:after:w-1 checked:after:-translate-x-1/2 checked:after:-translate-y-1/2 checked:after:rotate-45 checked:after:border-b-2 checked:after:border-r-2 checked:after:border-[#07191a]"
+            />
+            <span className="text-muted-foreground leading-5">
+              I have read and agree to the{" "}
+              <Link to="/terms" className="text-primary hover:underline">
+                Terms & Conditions
+              </Link>
+              .
+            </span>
+          </label>
           {error && (
             <p
               role="alert"
@@ -110,11 +126,11 @@ function SignupPage() {
           )}
           {confirmSent && (
             <p className="border-primary/40 bg-primary/10 text-primary rounded-lg border px-3 py-2 text-sm">
-              Almost there — we sent a confirmation link to {email}. Click it to activate your
+              Almost there â€” we sent a confirmation link to {email}. Click it to activate your
               account, then log in.
             </p>
           )}
-          <Button type="submit" className="w-full" disabled={busy}>
+          <Button type="submit" className="w-full" disabled={busy || !termsAccepted}>
             {busy && <Loader2 className="h-4 w-4 animate-spin" />} Create account
           </Button>
         </form>
@@ -128,3 +144,8 @@ function SignupPage() {
     </div>
   );
 }
+
+
+
+
+
