@@ -5,7 +5,7 @@
  * This planner intentionally does not depend on Lovable or another AI gateway.
  *
  * It creates a deterministic continuity plan from the user's original brief.
- * Wan receives the original brief plus a scene-specific direction for each clip.
+ * Veo receives the original brief plus a scene-specific direction for each clip.
  */
 
 import type { AspectRatio, VideoStyle } from "@/lib/types";
@@ -164,7 +164,7 @@ export async function planScenes(input: PlanInput): Promise<ScenePlan> {
  * Final prompt handed to the video model for one scene.
  *
  * The original request and continuity bible are included every time because
- * each Wan clip is generated independently.
+ * each Veo clip is generated independently.
  */
 export function buildScenePrompt(args: {
   originalPrompt: string;

@@ -5,7 +5,7 @@ import { creditCost, SCENE_PLAN } from "@/lib/types";
 
 const bodySchema = z.object({
   prompt: z.string().trim().min(8, "Prompt must be at least 8 characters.").max(2000),
-duration: z.union([z.literal(10), z.literal(15), z.literal(30)]),
+  duration: z.union([z.literal(8), z.literal(15), z.literal(30)]),
   aspectRatio: z.enum(["9:16", "16:9", "1:1"]),
   style: z.enum(["Cinematic", "Realistic", "Anime", "3D", "Animation"]),
   projectId: z.string().min(1),

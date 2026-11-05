@@ -49,13 +49,19 @@ export const Route = createFileRoute("/app/projects/$projectId")({
 });
 
 const POLL_INTERVAL_MS = 6000;
-const TIMEOUT_MS = 90 * 60 * 1000;
+const TIMEOUT_MS = 25 * 60 * 1000;
 
 function ProjectDetailPage() {
   const { projectId } = Route.useParams();
 
-  const { getProject, regenerate, balance, generationsFor, linkGeneration, applyJobUpdate } =
-    useData();
+  const {
+    getProject,
+    regenerate,
+    balance,
+    generationsFor,
+    linkGeneration,
+    applyJobUpdate,
+  } = useData();
 
   const { user } = useAuth();
 
@@ -64,7 +70,8 @@ function ProjectDetailPage() {
   const active = history[0];
 
   const jobId = active?.provider_job_id ?? null;
-  const isRunning = active?.status === "queued" || active?.status === "processing";
+  const isRunning =
+    active?.status === "queued" || active?.status === "processing";
 
   const [progress, setProgress] = useState(0);
   const [phase, setPhase] = useState("Preparing");
@@ -147,21 +154,30 @@ function ProjectDetailPage() {
 
           if (state.status === "failed") {
             toast.error(
-              state.failedScene ? `Scene ${state.failedScene} failed` : "Generation failed",
+              state.failedScene
+                ? `Scene ${state.failedScene} failed`
+                : "Generation failed",
               {
-                description: `${state.error ?? "Provider error."} Credits have been refunded.`,
+                description: `${
+                  state.error ?? "Provider error."
+                } Credits have been refunded.`,
               },
             );
           } else {
             toast.success(
-              `Your video is ready — ${formatDuration(state.actualDuration) ?? "verified"}.`,
+              `Your video is ready — ${
+                formatDuration(state.actualDuration) ?? "verified"
+              }.`,
             );
           }
 
           return;
         }
 
-        if (Date.now() - (startedAt.current ?? Date.now()) > TIMEOUT_MS) {
+        if (
+          Date.now() - (startedAt.current ?? Date.now()) >
+          TIMEOUT_MS
+        ) {
           applyJobUpdate(active!.id, {
             status: "failed",
             error: "Generation timed out.",
@@ -222,7 +238,9 @@ function ProjectDetailPage() {
         const response = await fetch(url);
 
         if (!response.ok) {
-          throw new Error(`Video request failed with status ${response.status}`);
+          throw new Error(
+            `Video request failed with status ${response.status}`,
+          );
         }
 
         const blob = await response.blob();
@@ -236,7 +254,8 @@ function ProjectDetailPage() {
 
         if (!cancelled) {
           toast.error("Could not load video", {
-            description: "The video was generated, but the preview could not be loaded.",
+            description:
+              "The video was generated, but the preview could not be loaded.",
           });
         }
       } finally {
@@ -404,7 +423,11 @@ function ProjectDetailPage() {
         projectId,
       });
 
-      linkGeneration(generation.id, result.generationId, result.provider);
+      linkGeneration(
+        generation.id,
+        result.generationId,
+        result.provider,
+      );
 
       startedAt.current = Date.now();
 
@@ -418,11 +441,17 @@ function ProjectDetailPage() {
     } catch (error) {
       applyJobUpdate(generation.id, {
         status: "failed",
-        error: error instanceof Error ? error.message : "Generation failed to start.",
+        error:
+          error instanceof Error
+            ? error.message
+            : "Generation failed to start.",
       });
 
       toast.error("Could not start generation", {
-        description: error instanceof Error ? error.message : "Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Please try again.",
       });
     } finally {
       setRestarting(false);
@@ -457,7 +486,9 @@ function ProjectDetailPage() {
                     <div className="absolute inset-0 grid place-items-center">
                       <div className="text-center">
                         <Loader2 className="text-primary mx-auto h-8 w-8 animate-spin" />
-                        <p className="text-muted-foreground mt-3 text-sm">Loading video…</p>
+                        <p className="text-muted-foreground mt-3 text-sm">
+                          Loading video…
+                        </p>
                       </div>
                     </div>
                   ) : playbackUrl ? (
@@ -505,7 +536,9 @@ function ProjectDetailPage() {
                             type="button"
                             onClick={togglePlay}
                             className="grid h-9 w-9 place-items-center rounded-full bg-white text-black transition hover:bg-white/90"
-                            aria-label={isPlaying ? "Pause video" : "Play video"}
+                            aria-label={
+                              isPlaying ? "Pause video" : "Play video"
+                            }
                           >
                             {isPlaying ? (
                               <Pause className="h-4 w-4" />
@@ -518,7 +551,9 @@ function ProjectDetailPage() {
                             type="button"
                             onClick={toggleMute}
                             className="grid h-9 w-9 place-items-center rounded-full text-white transition hover:bg-white/10"
-                            aria-label={isMuted ? "Unmute video" : "Mute video"}
+                            aria-label={
+                              isMuted ? "Unmute video" : "Mute video"
+                            }
                           >
                             {isMuted ? (
                               <VolumeX className="h-5 w-5" />
@@ -560,9 +595,14 @@ function ProjectDetailPage() {
                       <>
                         <Loader2 className="text-primary mx-auto h-8 w-8 animate-spin" />
 
-                        <p className="mt-3 text-sm font-medium">{phase}</p>
+                        <p className="mt-3 text-sm font-medium">
+                          {phase}
+                        </p>
 
-                        <Progress value={Math.max(progress, 5)} className="mt-3" />
+                        <Progress
+                          value={Math.max(progress, 5)}
+                          className="mt-3"
+                        />
 
                         <p className="text-muted-foreground mt-2 text-xs">
                           {job && job.sceneCount > 1
@@ -575,11 +615,14 @@ function ProjectDetailPage() {
                         <Film className="text-muted-foreground mx-auto h-8 w-8" />
 
                         <p className="mt-3 text-sm font-medium">
-                          {project.status === "failed" ? "Generation failed" : "No video yet"}
+                          {project.status === "failed"
+                            ? "Generation failed"
+                            : "No video yet"}
                         </p>
 
                         <p className="text-muted-foreground mt-1 text-xs">
-                          {active?.error_message ?? "Start a render to see your video here."}
+                          {active?.error_message ??
+                            "Start a render to see your video here."}
                         </p>
                       </>
                     )}
@@ -598,7 +641,10 @@ function ProjectDetailPage() {
                   asChild={!!ready && !!playbackUrl}
                 >
                   {ready && playbackUrl ? (
-                    <a href={playbackUrl} download={`${project.title}.mp4`}>
+                    <a
+                      href={playbackUrl}
+                      download={`${project.title}.mp4`}
+                    >
                       <Download className="h-4 w-4" />
                       Download
                     </a>
@@ -611,7 +657,9 @@ function ProjectDetailPage() {
                 </Button>
 
                 <Button
-                  disabled={balance < cost || isRunning || restarting}
+                  disabled={
+                    balance < cost || isRunning || restarting
+                  }
                   onClick={handleRegenerate}
                 >
                   {restarting ? (
@@ -629,7 +677,9 @@ function ProjectDetailPage() {
             <div className="panel p-5">
               <h2 className="text-sm font-semibold">Prompt</h2>
 
-              <p className="text-muted-foreground mt-2 text-sm leading-relaxed">{project.prompt}</p>
+              <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                {project.prompt}
+              </p>
             </div>
 
             <div className="panel space-y-3 p-5 text-sm">
@@ -639,25 +689,50 @@ function ProjectDetailPage() {
                 [
                   "Duration",
                   project.actual_duration_seconds
-                    ? `${formatDuration(project.actual_duration_seconds)} (verified)`
+                    ? `${formatDuration(
+                        project.actual_duration_seconds,
+                      )} (verified)`
                     : `${project.duration_seconds}s requested`,
                 ],
 
                 ...(job?.width && job?.height
-                  ? ([["Resolution", `${job.width}x${job.height}`]] as [string, string][])
+                  ? ([
+                      [
+                        "Resolution",
+                        `${job.width}x${job.height}`,
+                      ],
+                    ] as [string, string][])
                   : []),
 
-                ...(job?.fps ? ([["Frame rate", `${job.fps} fps`]] as [string, string][]) : []),
+                ...(job?.fps
+                  ? ([["Frame rate", `${job.fps} fps`]] as [
+                      string,
+                      string,
+                    ][])
+                  : []),
 
-                ...(job?.videoCodec ? ([["Codec", job.videoCodec]] as [string, string][]) : []),
+                ...(job?.videoCodec
+                  ? ([["Codec", job.videoCodec]] as [
+                      string,
+                      string,
+                    ][])
+                  : []),
 
                 ["Aspect ratio", project.aspect_ratio],
                 ["Style", project.style],
-                ["Created", new Date(project.created_at).toLocaleString()],
+                [
+                  "Created",
+                  new Date(project.created_at).toLocaleString(),
+                ],
                 ["Generations", String(history.length)],
               ].map(([label, value]) => (
-                <div key={label} className="flex items-center justify-between">
-                  <span className="text-muted-foreground">{label}</span>
+                <div
+                  key={label}
+                  className="flex items-center justify-between"
+                >
+                  <span className="text-muted-foreground">
+                    {label}
+                  </span>
 
                   <span>{value}</span>
                 </div>

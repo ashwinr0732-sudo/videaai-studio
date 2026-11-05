@@ -12,11 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
-import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
-import { Route as TermsRouteImport } from './routes/terms'
 import { Route as ApiGenerateVideoRouteImport } from './routes/api/generate-video'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as AppCreateRouteImport } from './routes/app.create'
@@ -43,29 +40,14 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
-  id: '/forgot-password',
-  path: '/forgot-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateVideoRoute = ApiGenerateVideoRouteImport.update({
@@ -123,11 +105,8 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRouteWithChildren
-  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/terms': typeof TermsRoute
   '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
@@ -142,11 +121,8 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/terms': typeof TermsRoute
   '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
@@ -163,11 +139,8 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
   '/app': typeof AppRouteWithChildren
-  '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
-  '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
-  '/terms': typeof TermsRoute
   '/api/generate-video': typeof ApiGenerateVideoRoute
   '/app/create': typeof AppCreateRoute
   '/app/pricing': typeof AppPricingRoute
@@ -185,11 +158,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
-    | '/forgot-password'
     | '/login'
-    | '/reset-password'
     | '/signup'
-    | '/terms'
     | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
@@ -204,11 +174,8 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/admin'
-    | '/forgot-password'
     | '/login'
-    | '/reset-password'
     | '/signup'
-    | '/terms'
     | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
@@ -224,11 +191,8 @@ export interface FileRouteTypes {
     | '/'
     | '/admin'
     | '/app'
-    | '/forgot-password'
     | '/login'
-    | '/reset-password'
     | '/signup'
-    | '/terms'
     | '/api/generate-video'
     | '/app/create'
     | '/app/pricing'
@@ -245,11 +209,8 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
   AppRoute: typeof AppRouteWithChildren
-  ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
-  ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
-  TermsRoute: typeof TermsRoute
   ApiGenerateVideoRoute: typeof ApiGenerateVideoRoute
   ApiVideoContentJobIdRoute: typeof ApiVideoContentJobIdRoute
   ApiVideoStatusJobIdRoute: typeof ApiVideoStatusJobIdRoute
@@ -279,13 +240,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/forgot-password': {
-      id: '/forgot-password'
-      path: '/forgot-password'
-      fullPath: '/forgot-password'
-      preLoaderRoute: typeof ForgotPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -293,25 +247,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/signup': {
       id: '/signup'
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate-video': {
@@ -411,11 +351,8 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
   AppRoute: AppRouteWithChildren,
-  ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,
-  ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
-  TermsRoute: TermsRoute,
   ApiGenerateVideoRoute: ApiGenerateVideoRoute,
   ApiVideoContentJobIdRoute: ApiVideoContentJobIdRoute,
   ApiVideoStatusJobIdRoute: ApiVideoStatusJobIdRoute,

@@ -1,29 +1,25 @@
 /**
  * Server-side video provider abstraction.
  *
- * VideaAI uses RunPod Serverless to execute Wan2.2 TI2V-5B.
- * Provider secrets stay server-side.
+ * VideaAI currently uses Magic Hour's Text-to-Video API.
+ * The API key stays server-side in MAGIC_HOUR_API_KEY.
+ *
+ * Provider swap rule:
+ * The rest of VideaAI talks only to VideoProvider.
+ * To replace Magic Hour later, replace this provider implementation.
  */
 
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import type { AspectRatio } from "@/lib/types";
 
 export type JobStatus = "queued" | "processing" | "completed" | "failed";
 
-/**
- * Wan2.2 TI2V-5B's standard text-to-video output is 121 frames at 24 fps,
- * which is approximately 5.04 seconds. VideaAI composes longer products from
- * these fixed-length clips and stitches them server-side.
- */
-export type ClipSeconds = 5;
+export type ClipSeconds = 4 | 6 | 8;
 
 export interface ClipRequest {
   prompt: string;
   seconds: ClipSeconds;
   aspectRatio: AspectRatio;
   inputReference?: string;
-  /** Private Supabase Storage path where the RunPod worker will write the MP4. */
-  storagePath: string;
 }
 
 export interface ProviderJob {
@@ -60,26 +56,27 @@ export class VideoProviderError extends Error {
   }
 }
 
-const RUNPOD_BASE_URL = "https://api.runpod.ai/v2";
-const RUNPOD_MODEL = "Wan-AI/Wan2.2-TI2V-5B";
-const BUCKET = "generated-videos";
+const MAGIC_HOUR_BASE_URL = "https://api.magichour.ai/v1";
 
-function getRunPodConfig() {
-  const apiKey = process.env["RUNPOD_API_KEY"]?.trim();
-  const endpointId = process.env["RUNPOD_ENDPOINT_ID"]?.trim();
+const MAGIC_HOUR_MODEL = "default";
 
-  if (!apiKey || !endpointId) {
+function getApiKey(): string {
+  const key = process.env["MAGIC_HOUR_API_KEY"];
+
+  if (!key) {
     throw new VideoProviderError(
-      "Video generation is not configured. Add RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID to the server environment.",
+      "Video generation is not configured. Add MAGIC_HOUR_API_KEY to the server environment.",
       500,
     );
   }
 
-  return { apiKey, endpointId };
+  return key;
 }
 
 function providerErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
+  if (error instanceof Error) {
+    return error.message;
+  }
 
   if (typeof error === "object" && error !== null) {
     const value = error as {
@@ -96,28 +93,24 @@ function providerErrorMessage(error: unknown): string {
   return "The video provider returned an unexpected error.";
 }
 
-type RunPodResponse = {
-  id?: string;
-  status?: string;
-  error?: unknown;
-  message?: unknown;
-  output?: unknown;
-};
-
-async function runPodRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  const { apiKey, endpointId } = getRunPodConfig();
-  const response = await fetch(`${RUNPOD_BASE_URL}/${encodeURIComponent(endpointId)}${path}`, {
+async function magicHourRequest<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
+  const response = await fetch(`${MAGIC_HOUR_BASE_URL}${path}`, {
     ...init,
     headers: {
       accept: "application/json",
-      authorization: `Bearer ${apiKey}`,
+      authorization: `Bearer ${getApiKey()}`,
       "content-type": "application/json",
       ...(init?.headers ?? {}),
     },
   });
 
   const text = await response.text();
+
   let data: unknown = null;
+
   try {
     data = text ? JSON.parse(text) : null;
   } catch {
@@ -125,19 +118,18 @@ async function runPodRequest<T>(path: string, init?: RequestInit): Promise<T> {
   }
 
   if (!response.ok) {
-    const body = (data ?? {}) as {
-      error?: unknown;
-      message?: unknown;
-      detail?: unknown;
-    };
     const message =
-      typeof body.error === "string"
-        ? body.error
-        : typeof body.message === "string"
-          ? body.message
-          : typeof body.detail === "string"
-            ? body.detail
-            : text || `RunPod request failed (${response.status}).`;
+      typeof data === "object" &&
+      data !== null &&
+      "error" in data &&
+      typeof (data as { error?: unknown }).error === "object"
+        ? JSON.stringify((data as { error: unknown }).error)
+        : typeof data === "object" &&
+            data !== null &&
+            "message" in data &&
+            typeof (data as { message?: unknown }).message === "string"
+          ? String((data as { message: string }).message)
+          : text || `Magic Hour request failed (${response.status}).`;
 
     throw new VideoProviderError(message, response.status);
   }
@@ -145,144 +137,178 @@ async function runPodRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-function mapRunPodStatus(status?: string): JobStatus {
-  switch (String(status ?? "").toUpperCase()) {
-    case "COMPLETED":
-      return "completed";
-    case "FAILED":
-    case "CANCELLED":
-    case "TIMED_OUT":
-      return "failed";
-    case "IN_PROGRESS":
-    case "RUNNING":
-      return "processing";
-    case "IN_QUEUE":
-    case "QUEUED":
-    case "STARTING":
-    default:
-      return "queued";
+type MagicHourCreateResponse = {
+  id?: string;
+  credits_charged?: number;
+  estimated_frame_cost?: number;
+};
+
+type MagicHourProjectResponse = {
+  id?: string;
+  status?: string;
+  progress?: number;
+  error?: {
+    code?: string;
+    message?: string;
+  } | null;
+  downloads?: Array<{
+    url?: string;
+    expires_at?: string;
+  }>;
+  download?: {
+    url?: string;
+    expires_at?: string;
+  };
+};
+
+function mapMagicHourStatus(
+  status: string | undefined,
+): JobStatus {
+  const normalized = String(status ?? "").toLowerCase();
+
+  if (
+    normalized === "complete" ||
+    normalized === "completed" ||
+    normalized === "success"
+  ) {
+    return "completed";
   }
-}
 
-function runPodError(job: RunPodResponse): string | null {
-  if (typeof job.error === "string" && job.error.trim()) return job.error;
-  if (typeof job.message === "string" && job.message.trim()) return job.message;
-
-  if (typeof job.output === "object" && job.output !== null) {
-    const output = job.output as { error?: unknown; message?: unknown };
-    if (typeof output.error === "string" && output.error.trim()) return output.error;
-    if (typeof output.message === "string" && output.message.trim()) return output.message;
+  if (
+    normalized === "error" ||
+    normalized === "failed" ||
+    normalized === "cancelled" ||
+    normalized === "canceled"
+  ) {
+    return "failed";
   }
 
-  return null;
-}
-
-function runPodProgress(status: string | undefined): number {
-  switch (String(status ?? "").toUpperCase()) {
-    case "COMPLETED":
-      return 100;
-    case "IN_PROGRESS":
-    case "RUNNING":
-      return 50;
-    case "FAILED":
-    case "CANCELLED":
-    case "TIMED_OUT":
-      return 0;
-    default:
-      return 5;
+  if (
+    normalized === "processing" ||
+    normalized === "running" ||
+    normalized === "started"
+  ) {
+    return "processing";
   }
+
+  return "queued";
 }
 
-function getStoragePath(output: unknown): string | null {
-  if (typeof output !== "object" || output === null) return null;
-  const value = output as { storage_path?: unknown; storagePath?: unknown };
-  const path =
-    typeof value.storage_path === "string"
-      ? value.storage_path
-      : typeof value.storagePath === "string"
-        ? value.storagePath
-        : null;
+const magicHourProvider: VideoProvider = {
+  name: "magic-hour",
+  model: MAGIC_HOUR_MODEL,
 
-  if (!path || !path.startsWith("renders/") || path.includes("..")) return null;
-  return path;
-}
+  supportedClipSeconds: [4, 6, 8],
 
-const runPodWanProvider: VideoProvider = {
-  name: "runpod-wan2.2-ti2v-5b",
-  model: RUNPOD_MODEL,
-  supportedClipSeconds: [5],
   supportsImageReference: false,
 
   sizeFor(aspectRatio) {
     if (aspectRatio === "9:16") {
-      return { size: "704x1280", width: 704, height: 1280 };
+      return {
+        size: "480x854",
+        width: 480,
+        height: 854,
+      };
     }
 
-    if (aspectRatio === "16:9") {
-      return { size: "1280x704", width: 1280, height: 704 };
-    }
-
-    return { size: "704x704", width: 704, height: 704 };
+    return {
+      size: "854x480",
+      width: 854,
+      height: 480,
+    };
   },
 
   async createClip(input) {
-    if (input.seconds !== 5) {
-      throw new VideoProviderError("Wan2.2 TI2V-5B currently generates 5-second clips only.", 400);
-    }
-
-    if (input.inputReference) {
-      throw new VideoProviderError(
-        "Image references are not enabled in the current VideaAI RunPod workflow.",
-        400,
-      );
-    }
-
-    if (!input.storagePath.startsWith("renders/") || input.storagePath.includes("..")) {
-      throw new VideoProviderError("Invalid video storage path.", 400);
-    }
-
     try {
-      const job = await runPodRequest<RunPodResponse>("/run", {
-        method: "POST",
-        body: JSON.stringify({
-          input: {
-            prompt: input.prompt,
-            seconds: input.seconds,
-            aspect_ratio: input.aspectRatio,
-            storage_path: input.storagePath,
-          },
-        }),
-      });
+      const orientation =
+        input.aspectRatio === "9:16"
+          ? "portrait"
+          : "landscape";
 
-      if (!job.id) {
+      const result =
+        await magicHourRequest<MagicHourCreateResponse>(
+          "/text-to-video",
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name: "VideaAI Scene",
+              end_seconds: input.seconds,
+              orientation,
+              model: MAGIC_HOUR_MODEL,
+              resolution: "480p",
+              style: {
+                prompt: input.prompt.slice(0, 2000),
+              },
+            }),
+          },
+        );
+
+      if (!result.id) {
         throw new VideoProviderError(
-          "RunPod accepted the request but did not return a job ID.",
+          "Magic Hour accepted the request but did not return a project ID.",
           502,
         );
       }
 
       return {
-        id: job.id,
-        status: mapRunPodStatus(job.status),
-        progress: runPodProgress(job.status),
-        error: runPodError(job),
+        id: result.id,
+        status: "queued",
+        progress: 0,
+        error: null,
       };
     } catch (error) {
-      if (error instanceof VideoProviderError) throw error;
-      throw new VideoProviderError(providerErrorMessage(error), 502);
+      if (error instanceof VideoProviderError) {
+        throw error;
+      }
+
+      throw new VideoProviderError(
+        providerErrorMessage(error),
+        502,
+      );
     }
   },
 
   async getClip(clipJobId) {
     try {
-      const job = await runPodRequest<RunPodResponse>(`/status/${encodeURIComponent(clipJobId)}`);
-      const status = mapRunPodStatus(job.status);
+      const result =
+        await magicHourRequest<MagicHourProjectResponse>(
+          `/video-projects/${encodeURIComponent(clipJobId)}`,
+        );
+
+      const status = mapMagicHourStatus(result.status);
+
+      if (status === "completed") {
+        return {
+          id: clipJobId,
+          status: "completed",
+          progress: 100,
+          error: null,
+        };
+      }
+
+      if (status === "failed") {
+        return {
+          id: clipJobId,
+          status: "failed",
+          progress: 0,
+          error:
+            result.error?.message ??
+            `Magic Hour returned status "${result.status ?? "unknown"}".`,
+        };
+      }
+
+      const progress =
+        typeof result.progress === "number"
+          ? Math.max(0, Math.min(99, result.progress))
+          : status === "processing"
+            ? 50
+            : 5;
 
       return {
         id: clipJobId,
         status,
-        progress: runPodProgress(job.status),
-        error: status === "failed" ? (runPodError(job) ?? "RunPod generation failed.") : null,
+        progress,
+        error: null,
       };
     } catch (error) {
       return {
@@ -296,41 +322,56 @@ const runPodWanProvider: VideoProvider = {
 
   async downloadClip(clipJobId) {
     try {
-      const job = await runPodRequest<RunPodResponse>(`/status/${encodeURIComponent(clipJobId)}`);
-      const status = mapRunPodStatus(job.status);
-
-      if (status !== "completed") {
-        throw new VideoProviderError(
-          `RunPod video generation has not completed yet. Current status: ${job.status ?? "unknown"}.`,
-          409,
+      const result =
+        await magicHourRequest<MagicHourProjectResponse>(
+          `/video-projects/${encodeURIComponent(clipJobId)}`,
         );
-      }
 
-      const storagePath = getStoragePath(job.output);
-      if (!storagePath) {
+      const videoUrl =
+        result.downloads?.[0]?.url ??
+        result.download?.url;
+
+      if (!videoUrl) {
         throw new VideoProviderError(
-          "RunPod completed the generation but did not return the Supabase storage path.",
+          "Magic Hour completed the project but did not return a video download URL.",
           502,
         );
       }
 
-      const { data, error } = await supabaseAdmin.storage.from(BUCKET).download(storagePath);
+      const response = await fetch(videoUrl);
 
-      if (error || !data) {
+      if (!response.ok) {
         throw new VideoProviderError(
-          error?.message ?? "The generated MP4 could not be downloaded from storage.",
-          502,
+          `Could not download the generated video (${response.status}).`,
+          response.status,
         );
       }
 
-      return new Uint8Array(await data.arrayBuffer());
+      return new Uint8Array(
+        await response.arrayBuffer(),
+      );
     } catch (error) {
-      if (error instanceof VideoProviderError) throw error;
-      throw new VideoProviderError(providerErrorMessage(error), 502);
+      if (error instanceof VideoProviderError) {
+        throw error;
+      }
+
+      throw new VideoProviderError(
+        providerErrorMessage(error),
+        502,
+      );
     }
   },
 };
 
+/**
+ * SIM SLOT:
+ *
+ * Everything outside this provider calls getVideoProvider().
+ *
+ * Later, replacing Magic Hour with Google/Runway/etc.
+ * means replacing this provider implementation and
+ * returning the new provider here.
+ */
 export function getVideoProvider(): VideoProvider {
-  return runPodWanProvider;
+  return magicHourProvider;
 }

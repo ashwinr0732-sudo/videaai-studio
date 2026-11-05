@@ -15,20 +15,25 @@ export interface User {
 export type ProjectStatus = "draft" | "queued" | "processing" | "ready" | "failed";
 
 export type AspectRatio = "9:16" | "16:9" | "1:1";
-
 export type VideoStyle = "Cinematic" | "Realistic" | "Anime" | "3D" | "Animation";
-
-export type DurationSeconds = 10 | 15 | 30;
+/**
+ * Durations the product offers. The video model can only render 4/6/8-second
+ * clips, so anything above 8s is composed from several planned scenes that are
+ * stitched server-side (see SCENE_PLAN).
+ */
+export type DurationSeconds = 8 | 15 | 30;
 
 /**
- * Wan2.2 TI2V-5B is used as a fixed ~5-second clip generator.
- * Longer products are composed from those clips and stitched server-side.
- * The measured final duration is verified after stitching.
+ * Scene breakdown per requested duration, in provider-supported clip lengths.
+ * 8s  -> a single clip (unchanged single-clip behaviour).
+ * 15s -> 8 + 6 = 14s. The model has no 7-second clip, so 14s is the closest
+ *        achievable total; the UI always shows the verified actual duration.
+ * 30s -> 8 + 8 + 8 + 6 = exactly 30s.
  */
-export const SCENE_PLAN: Record<DurationSeconds, readonly 5[]> = {
-  10: [5, 5],
-  15: [5, 5, 5],
-  30: [5, 5, 5, 5, 5, 5],
+export const SCENE_PLAN: Record<DurationSeconds, readonly (4 | 6 | 8)[]> = {
+  8: [8],
+  15: [8, 6],
+  30: [8, 8, 8, 6],
 };
 
 export interface Project {
@@ -42,10 +47,8 @@ export interface Project {
   status: ProjectStatus;
   thumbnail_url: string | null;
   video_url: string | null;
-
   /** Verified duration of the delivered file; null until a render is verified. */
   actual_duration_seconds: number | null;
-
   created_at: string;
   updated_at: string;
 }
@@ -76,19 +79,18 @@ export interface CreditEntry {
 }
 
 /**
- * Credit cost for each requested product duration.
- *
- * 10s = 1 credit
- * 15s = 2 credits
- * 30s = 4 credits
+ * One credit per generated clip. Legacy 5s/10s keys are kept so projects created
+ * before the multi-scene workflow still price and refund correctly.
  */
 export const CREDIT_COST: Record<number, number> = {
-  10: 1,
+  8: 1,
   15: 2,
   30: 4,
+  5: 1,
+  10: 2,
 };
 
 /** Credit price for a requested duration, with a safe fallback for legacy rows. */
 export function creditCost(duration: number): number {
-  return CREDIT_COST[duration] ?? Math.max(1, Math.ceil(duration / 10));
+  return CREDIT_COST[duration] ?? Math.max(1, Math.ceil(duration / 8));
 }

@@ -10,7 +10,7 @@
  * because the provider deletes generated clips after ~48h.
  *
  * The job is a state machine advanced one step per status poll, so no single
- * request has to stay open for the several minutes a multi-scene render takes:
+ * request has to stay open for the several minutes a 4-scene render takes:
  *
  *   planning -> generating (scene 1..N, sequential) -> stitching -> verifying -> completed
  *                                                                             \-> failed
@@ -24,10 +24,9 @@ import { getVideoProvider, VideoProviderError, type ClipSeconds } from "./provid
 
 const BUCKET = "generated-videos";
 /** Hard stop so a stuck provider job cannot spin forever. */
-const JOB_TIMEOUT_MS = 90 * 60 * 1000;
+const JOB_TIMEOUT_MS = 25 * 60 * 1000;
 
-export type JobPhase =
-  "planning" | "generating" | "stitching" | "verifying" | "completed" | "failed";
+export type JobPhase = "planning" | "generating" | "stitching" | "verifying" | "completed" | "failed";
 export type JobStatus = "queued" | "processing" | "completed" | "failed";
 
 export type SceneStatus = "pending" | "generating" | "stored" | "failed";
@@ -102,9 +101,7 @@ async function loadJob(jobId: string): Promise<JobRow | null> {
 }
 
 async function patch(jobId: string, values: Record<string, unknown>) {
-  await db()
-    .update(values as never)
-    .eq("id", jobId);
+  await db().update(values as never).eq("id", jobId);
 }
 
 function overallProgress(job: JobRow, clipProgress = 0) {
@@ -158,9 +155,7 @@ async function failJob(job: JobRow, message: string, sceneIndex: number | null =
   await patch(job.id, {
     status: "failed",
     phase: "failed",
-    error_message: sceneIndex
-      ? `Scene ${sceneIndex} of ${job.scenes.length || "?"}: ${message}`
-      : message,
+    error_message: sceneIndex ? `Scene ${sceneIndex} of ${job.scenes.length || "?"}: ${message}` : message,
     failed_scene: sceneIndex,
     progress: job.progress,
   });
@@ -218,8 +213,6 @@ async function startScene(job: JobRow, index: number) {
   };
   const previous = index > 1 ? job.scenes[index - 2]! : null;
 
-  const storagePath = `renders/${job.id}/scene-${scene.index}.mp4`;
-
   const clip = await provider.createClip({
     prompt: buildScenePrompt({
       originalPrompt: job.prompt,
@@ -229,17 +222,11 @@ async function startScene(job: JobRow, index: number) {
       style: job.style,
       aspectRatio: job.aspect_ratio,
       previousScene: previous
-        ? {
-            index: previous.index,
-            seconds: previous.seconds,
-            title: previous.title,
-            prompt: previous.prompt,
-          }
+        ? { index: previous.index, seconds: previous.seconds, title: previous.title, prompt: previous.prompt }
         : null,
     }),
     seconds: scene.seconds,
     aspectRatio: job.aspect_ratio,
-    storagePath,
   });
 
   const scenes = job.scenes.map((s) =>
@@ -318,11 +305,7 @@ export async function advanceJob(jobId: string, userRef: string): Promise<Public
       const clip = await getVideoProvider().getClip(current.clipJobId!);
 
       if (clip.status === "failed") {
-        await failJob(
-          job,
-          clip.error ?? "the provider could not generate this scene.",
-          current.index,
-        );
+        await failJob(job, clip.error ?? "the provider could not generate this scene.", current.index);
         return publicState((await loadJob(jobId))!);
       }
 
@@ -334,7 +317,7 @@ export async function advanceJob(jobId: string, userRef: string): Promise<Public
       // Completed: store the ORIGINAL provider MP4 (no preview, no re-encode).
       const bytes = await getVideoProvider().downloadClip(current.clipJobId!);
       probeMp4(bytes); // reject a truncated/unreadable download early
-      const path = current.storagePath ?? `renders/${job.id}/scene-${current.index}.mp4`;
+      const path = `renders/${job.id}/scene-${current.index}.mp4`;
       await upload(path, bytes);
 
       const scenes = job.scenes.map((s) =>
@@ -363,7 +346,7 @@ export async function advanceJob(jobId: string, userRef: string): Promise<Public
       let probe: Mp4Probe;
       let finalBytes: Uint8Array;
       if (clips.length === 1) {
-        // Single-clip renders keep the untouched original file.
+        // Single-clip renders keep the untouched original file (8s behaviour).
         finalBytes = clips[0]!;
         probe = probeMp4(finalBytes);
       } else {

@@ -24,7 +24,7 @@ export const Route = createFileRoute("/app/create")({
   component: CreatePage,
 });
 
-const DURATIONS: DurationSeconds[] = [10, 15, 30];
+const DURATIONS: DurationSeconds[] = [8, 15, 30];
 const RATIOS: AspectRatio[] = ["9:16", "16:9", "1:1"];
 const STYLES: VideoStyle[] = ["Cinematic", "Realistic", "Anime", "3D", "Animation"];
 
@@ -71,7 +71,7 @@ function CreatePage() {
   const navigate = useNavigate();
 
   const [prompt, setPrompt] = useState("");
-  const [duration, setDuration] = useState<DurationSeconds>(10);
+  const [duration, setDuration] = useState<DurationSeconds>(8);
   const [ratio, setRatio] = useState<AspectRatio>("16:9");
   const [style, setStyle] = useState<VideoStyle>("Cinematic");
   const [submitting, setSubmitting] = useState(false);
@@ -150,7 +150,7 @@ function CreatePage() {
           />
           <p className="text-muted-foreground -mt-3 text-xs">
             {scenePlan.length === 1
-              ? "Rendered as a single clip."
+              ? "Rendered as a single 8-second clip."
               : `Rendered as ${scenePlan.length} planned scenes (${scenePlan.join("s + ")}s) and stitched into one file. Final length is verified after stitching.`}
           </p>
           <OptionGroup label="Aspect ratio" options={RATIOS} value={ratio} onChange={setRatio} />
